@@ -304,7 +304,7 @@ BEGIN
       -- 12MB scaler + 2MB CG3/TCX + 2MB ROM
       RAMSIZE    => RAMSIZE,
       FPU_MULTI  => (FPU_MULTI=1),
-      ETHERNET   => false, --true, -- FAKE !
+      ETHERNET   => true, --true, -- FAKE !
       PS2        => true,
       TCX_ACCEL  => (TCX_ACCEL=1),
       SPORT2     => true,
