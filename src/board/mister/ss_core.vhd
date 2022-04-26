@@ -462,7 +462,7 @@ BEGIN
       clk        => sclk,
       reset_na   => reset_na);
   
-  id0_mist<="011" WHEN scsi_conf="011" ELSE "001";
+  id0_mist<="011" WHEN scsi_conf="011" ELSE "000";
   
   ----------------------------------------------------------
   i_scsi_mist2: ENTITY work.scsi_mist
