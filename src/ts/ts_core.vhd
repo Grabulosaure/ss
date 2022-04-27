@@ -84,8 +84,6 @@ ENTITY ts_core IS
     -- SCSI
     scsi_w      : OUT type_scsi_w;
     scsi_r      : IN  type_scsi_r;
-    scsi6_w      : IN type_scsi_w;
-    scsi6_r      : IN  type_scsi_r;
     
     sd_reg_w    : OUT type_sd_reg_w;
     sd_reg_r    : IN  type_sd_reg_r;
@@ -124,7 +122,7 @@ ENTITY ts_core IS
     ibram_r     : IN  type_pvc_r;
     iboot       : IN  std_logic;
 
-    -- Bus I²C
+    -- Bus I²C (SP605)
     iic1_scl    : OUT std_logic;
     iic1_sda_o  : OUT std_logic;
     iic1_sda_i  : IN  std_logic;
@@ -148,7 +146,6 @@ ENTITY ts_core IS
     rts         : OUT std_logic;
 
     -- Direct
-    led         : OUT uv8;
     ps2_i       : IN  uv4;
     ps2_o       : OUT uv4;
     
@@ -334,101 +331,6 @@ ARCHITECTURE rtl OF ts_core IS
       clk      : IN  std_logic);
   END COMPONENT;
   
-  COMPONENT plomb_mux
-    GENERIC (
-      NB   : uint8;
-      PROF : uint8);
-    PORT (
-      vi_w     : IN  arr_plomb_w(0 TO NB-1);
-      vi_r     : OUT arr_plomb_r(0 TO NB-1);
-      o_w      : OUT type_plomb_w;
-      o_r      : IN  type_plomb_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT plomb_sel
-    GENERIC (
-      NB   : uint8;
-      PROF : uint8);
-    PORT (
-      i_w      : IN  type_plomb_w;
-      i_r      : OUT type_plomb_r;
-      no       : IN  natural RANGE 0 TO NB-1;
-      vo_w     : OUT arr_plomb_w(0 TO NB-1);
-      vo_r     : IN  arr_plomb_r(0 TO NB-1);
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT plomb_pvc IS
-    GENERIC (
-      MODE : enum_plomb_pvc);
-    PORT (
-      bus_w    : IN  type_plomb_w;
-      bus_r    : OUT type_plomb_r;
-      mem_w    : OUT type_pvc_w;
-      mem_r    : IN  type_pvc_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT dl_plomb_trace IS
-    GENERIC (
-      ADRS : uv4;
-      SIGS : natural RANGE 0 TO 64;
-      ENAH : boolean;
-      PROF : natural);
-    PORT (
-      dl_w     : IN  type_dl_w;
-      dl_r     : OUT type_dl_r;
-      pw       : IN  type_plomb_w;
-      pr       : IN  type_plomb_r;
-      sig      : IN  unsigned(SIGS-1 DOWNTO 0);
-      trig     : IN  uv4;
-      trigo    : OUT std_logic;
-      gpo      : OUT uv8;
-      timecode : IN  uv32;
-      astart   : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT dl_plomb_trace;
-  
-  COMPONENT plomb_filtre IS
-    GENERIC (
-      A1  : uv32;
-      A1M : uv32;
-      A1X : std_logic;
-      A2  : uv32;
-      A2M : uv32;
-      A2X : std_logic;
-      A3  : uv32;
-      A3M : uv32;
-      A3X : std_logic;
-      A4  : uv32;
-      A4M : uv32;
-      A4X : std_logic);
-    PORT (
-      i_w      : IN  type_plomb_w;
-      i_r      : IN  type_plomb_r;
-      o_w      : OUT type_plomb_w;
-      o_r      : OUT type_plomb_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT plomb_filtre;
-  
-  --pragma synthesis_off
-  COMPONENT plomb_log
-    GENERIC (
-      nom : string);
-    PORT (
-      w        : IN type_plomb_w;
-      r        : IN type_plomb_r;
-      clk      : IN std_logic;
-      reset_na : IN std_logic);
-  END COMPONENT;
-  --pragma synthesis_on
-  
   COMPONENT ts_io
     GENERIC (
       SS20        : boolean;
@@ -531,80 +433,7 @@ ARCHITECTURE rtl OF ts_core IS
       clk         : IN  std_logic;
       reset_na    : IN  std_logic);
   END COMPONENT;
-
-  COMPONENT synth IS
-    GENERIC (
-      FREQ : natural;
-      RATE : natural);
-    PORT (
-      sync     : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT synth;
   
-  COMPONENT ts_aciamux IS
-    GENERIC (
-      BREAK : boolean;
-      TFIFO : natural;
-      RFIFO : natural);
-    PORT (
-      sync     : IN  std_logic;
-      cts      : IN  std_logic;
-      txd      : OUT std_logic;
-      tx0_data : IN  uv8;
-      tx0_req  : IN  std_logic;
-      tx0_rdy  : OUT std_logic;
-      tx1_data : IN  uv8;
-      tx1_req  : IN  std_logic;
-      tx1_rdy  : OUT std_logic;
-      rxd      : IN  std_logic;
-      rx0_data : OUT uv8;
-      rx0_req  : OUT std_logic;
-      rx0_ack  : IN  std_logic;
-      rx1_data : OUT uv8;
-      rx1_req  : OUT std_logic;
-      rx1_ack  : IN  std_logic;
-
-      obreak   : OUT std_logic;
-      osel     : OUT std_logic;
-      
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT ts_aciamux;
-  
-  COMPONENT acia IS
-    GENERIC (
-      TFIFO : natural;
-      RFIFO : natural);
-    PORT (
-      sync     : IN  std_logic;
-      txd      : OUT std_logic;
-      tx_data  : IN  uv8;
-      tx_req   : IN  std_logic;
-      tx_rdy   : OUT std_logic;
-      rxd      : IN  std_logic;
-      rx_data  : OUT uv8;
-      rx_break : OUT std_logic;
-      rx_req   : OUT std_logic;
-      rx_ack   : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT acia;
-  
-  COMPONENT idu IS
-    PORT (
-      tx_data  : OUT uv8;
-      tx_req   : OUT std_logic;
-      tx_rdy   : IN  std_logic;
-      rx_data  : IN  uv8;
-      rx_req   : IN  std_logic;
-      rx_ack   : OUT std_logic;
-      dl_w     : OUT type_dl_w;
-      dl_r     : IN  type_dl_r;
-      reset_na : IN  std_logic;
-      clk      : IN  std_logic);
-  END COMPONENT idu;
-    
   --------------------------------------------
   SIGNAL io_txd3_data : uv8;
   SIGNAL io_txd3_req,io_txd3_rdy : std_logic;
@@ -775,10 +604,10 @@ BEGIN
         clk      => clk);
     
     --pragma synthesis_off
-    ilog_inst:plomb_log
+    ilog_inst:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST")
       PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_na => reset_na);
-    ilog_data:plomb_log
+    ilog_data:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA")
       PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_na => reset_na);
 
@@ -790,7 +619,7 @@ BEGIN
     mem_pw<=ext_vo_pw(0);
     io_pw <=ext_vo_pw(1);
     
-    i_plomb_sel: plomb_sel
+    i_plomb_sel: ENTITY work.plomb_sel
       GENERIC MAP (
         NB   => 2,
         PROF => 20)
@@ -808,7 +637,7 @@ BEGIN
     mem_pr<=mux_vi_pr(0);
     iommu_pr<=mux_vi_pr(1);
     
-    i_plomb_mux: plomb_mux
+    i_plomb_mux: ENTITY work.plomb_mux
       GENERIC MAP (
         NB   => 2,
         PROF => 20)
@@ -1181,7 +1010,7 @@ BEGIN
     mem_pw<=ext_vo_pw(0);
     io_pw <=ext_vo_pw(1);
     
-    i_plomb_sel: plomb_sel
+    i_plomb_sel: ENTITY work.plomb_sel
       GENERIC MAP (
         NB   => 2,
         PROF => 20)
@@ -1224,20 +1053,20 @@ BEGIN
     mem_pr<=dram_pr;
 
     --pragma synthesis_off
-    ilog_inst:plomb_log
+    ilog_inst:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST0")
       PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_na => reset_na);
-    ilog_data:plomb_log
+    ilog_data:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA0")
       PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_na => reset_na);
-    ilog_inst2:plomb_log
+    ilog_inst2:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST1")
       PORT MAP (w => inst1_pw, r => inst1_pr, clk => clk, reset_na => reset_na);
-    ilog_data2:plomb_log
+    ilog_data2:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA1")
       PORT MAP (w => data1_pw, r => data1_pr, clk => clk, reset_na => reset_na);
 
-    ilog_mem:plomb_log
+    ilog_mem:ENTITY work.plomb_log
       GENERIC MAP (nom => "MEM")
       PORT MAP (w => mem_pw, r => mem_pr, clk => clk, reset_na => reset_na);
     
@@ -1250,7 +1079,7 @@ BEGIN
   -----------------------------------
   
   xstop<='0';
-  i_sync_rs: synth
+  i_sync_rs: ENTITY work.synth
     GENERIC MAP (
       FREQ => SYSFREQ,
       RATE => SERIALRATE*8)
@@ -1274,7 +1103,7 @@ BEGIN
     END IF;
   END PROCESS RSCLK;
   
-  i_aciamux: ts_aciamux
+  i_aciamux: ENTITY work.ts_aciamux
     GENERIC MAP (
       BREAK => ACIABREAK,
       TFIFO => 60,
@@ -1302,7 +1131,7 @@ BEGIN
       reset_na => reset_na);
 
   -----------------------------------
-  i_idu: idu
+  i_idu: ENTITY work.idu
     PORT MAP (
       tx_data  => debug_tx_data,
       tx_req   => debug_tx_req,
@@ -1323,10 +1152,8 @@ BEGIN
     PORT MAP (
       dl_w     => dl_w,
       dl_r     => dl_r_scsi,
-      --scsi_w   => scsi_w_i,
-      --scsi_r   => scsi_r,
-      scsi_w   => scsi6_w,
-      scsi_r   => scsi6_r,
+      scsi_w   => scsi_w_i,
+      scsi_r   => scsi_r,
       aux      => "0000000000",
       timecode => timecode,
       clk      => sclk,
@@ -1358,7 +1185,7 @@ BEGIN
   ------------------------------------------------------
   
   GenTrace:IF TRACE GENERATE
-    i_dl_plomb_trace1: dl_plomb_trace
+    i_dl_plomb_trace1: ENTITY work.dl_plomb_trace
       GENERIC MAP (ADRS =>x"4",SIGS => 0,ENAH => false,PROF =>4)
       PORT MAP (
         dl_w     => dl_w,
@@ -1374,7 +1201,7 @@ BEGIN
         clk      => clk,
         reset_na => reset_na);
 
-    i_dl_plomb_trace2: dl_plomb_trace
+    i_dl_plomb_trace2: ENTITY work.dl_plomb_trace
       GENERIC MAP (ADRS =>x"5",SIGS => 32,ENAH => false,PROF =>16)
       PORT MAP (
         dl_w     => dl_w,
@@ -1397,7 +1224,7 @@ BEGIN
                                 sel0 & sel1 & hit0 & hit1;
     END PROCESS;
     
-    i_dl_plomb_trace3: dl_plomb_trace
+    i_dl_plomb_trace3: ENTITY work.dl_plomb_trace
       GENERIC MAP (ADRS =>x"6",SIGS => 0,ENAH => false,PROF =>16)
       PORT MAP (
         dl_w     => dl_w,
@@ -1413,7 +1240,7 @@ BEGIN
         clk      => clk,
         reset_na => reset_na);
     
-    i_dl_plomb_trace4: dl_plomb_trace  
+    i_dl_plomb_trace4: ENTITY work.dl_plomb_trace  
       GENERIC MAP (ADRS =>x"7",SIGS => 0,ENAH => false,PROF =>16)
       PORT MAP (
         dl_w     => dl_w,
@@ -1467,7 +1294,7 @@ BEGIN
   vram_pw<=vid_pw;
   vid_pr<=vram_pr;
 
-  mem_io: plomb_pvc
+  mem_io: ENTITY work.plomb_pvc
     GENERIC MAP (MODE => RW)
     PORT MAP (
       bus_w    => io_pw,
@@ -1478,13 +1305,13 @@ BEGIN
       reset_na => reset_na);
   
   --pragma synthesis_off
-  ilog_ext:plomb_log
+  ilog_ext:ENTITY work.plomb_log
     GENERIC MAP (nom => "EXT")
     PORT MAP (w => ext0_pw, r => ext0_pr, clk => clk, reset_na => reset_na);
-  ilog_io:plomb_log
+  ilog_io:ENTITY work.plomb_log
     GENERIC MAP (nom => "IO")
     PORT MAP (w => io_pw, r => io_pr, clk => clk, reset_na => reset_na);
-  ilog_iommu:plomb_log
+  ilog_iommu:ENTITY work.plomb_log
     GENERIC MAP (nom => "IOMMU")
     PORT MAP (w => iommu_pw, r => iommu_pr, clk => clk, reset_na => reset_na);
   --pragma synthesis_on
@@ -1613,28 +1440,6 @@ BEGIN
   
   -----------------------------------
   rts <=debug0_s.dstop;
-  
-  -----------------------------------
-  LEDs: PROCESS (clk) IS
-  BEGIN
-    IF rising_edge(clk) THEN
-      iled(0)<=debug0_s.dstop;
-      iled(1)<=(cts AND kk_pulse);
-      iled(2)<=debug0_s.trap_stop;
-      iled(3)<=debug0_t.stop;
-
-      iled(0)<=osel;
-      iled(1)<='0';
-      iled(2)<='0';
-      iled(3)<=to_std_logic(irl0/=x"0");
-      iled(4)<=debug_stopa;
-      iled(5)<=debug0_s.halterror;
-      iled(6)<=debug0_s.dstop;
-      iled(7)<=debug0_s.trap_stop;
-      
-      led<=iled;
-    END IF;
-  END PROCESS LEDs;
   
   ------------------------------------------------------------------------------
 END ARCHITECTURE rtl;

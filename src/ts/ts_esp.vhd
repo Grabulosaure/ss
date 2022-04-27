@@ -679,21 +679,7 @@ BEGIN
   scsi_w_i.atn<=scsi_atn;
   scsi_w_i.did<=dest_id2;
   scsi_w_i.rst<=scsi_reset;
-
-  scsi_w_i.d_state<="0000" WHEN state=sIDLE ELSE
-                    "0001" WHEN state=sINFO_TRANSFER ELSE
-                    "0010" WHEN state=sINFO_TRANSFER_FIN ELSE
-                    "0011" WHEN state=sINFO_TRANSFER_CHANGE ELSE
-                    "0100" WHEN state=sICCS ELSE
-                    "0101" WHEN state=sICCS_BIS ELSE
-                    "0110" WHEN state=sICCS_TER ELSE
-                    "0111" WHEN state=sSELECT ELSE
-                    "1000" WHEN state=sSELECT_ATN ELSE
-                    "1001" WHEN state=sSELECT_ATN2 ELSE
-                    "1010" WHEN state=sSELECT_COMMAND ELSE
-                    "1011" WHEN state=sSELECT_FIN ELSE
-                    "1100" WHEN state=sNOSEL ELSE
-                    "1111";
+  
   scsi_w<=scsi_w_i;
 
   dma_dw<=scsi_r.d;

@@ -7,24 +7,6 @@
 -- Cyclone V SoC 5CSEBA6U23I7
 --------------------------------------------------------------------------------
 
--- ASCAL : 2000_0000
---           80_0000
--- FB    : 2200_0000
---           
-
---  CONSTANT OBRAM_ADRS : uv32 := x"1F80_0000";
---  CONSTANT TCX_ADRS   : uv32 := x"1FC0_0000";
-  
-
---[    1.599461] MiSTer_fb 22000000.MiSTer_fb: width = 960, height = 540, format=8888
-
-
---#define FB_SIZE  (1024*1024*8/4)               // 8MB
---#define FB_ADDR  (0x20000000 + (32*1024*1024)) // 512mb + 32mb(Core's fb)
-
---  Audio: CMA addr = 0x1EE00000
-
-
 LIBRARY ieee;
 USE ieee.std_logic_1164.ALL;
 USE ieee.numeric_std.ALL;
@@ -37,8 +19,6 @@ USE work.cpu_conf_pack.ALL;
 
 ENTITY ss_core IS
   GENERIC (
---  CONSTANT SYSFREQ   : natural := 40_000_000
---  CONSTANT SYSFREQ   : natural := 50_000_000;
     SYSFREQ   : natural := 65_000_000;
     SS20      : natural := 0; --true; -- false = SS5     | true = SS20
     NCPUS     : natural := 1; --2;     -- 1..4. SS20 if >=2
@@ -79,7 +59,6 @@ ENTITY ss_core IS
     sd_sck           : OUT   std_logic;
     sd_dat           : INOUT std_logic_vector(3 DOWNTO 0);
     sd_cmd           : INOUT std_logic;
-    sd_cd            : IN    std_logic;
     
     -- High latency DDR3 RAM interface
     -- Use for non-critical time purposes
@@ -123,14 +102,18 @@ ENTITY ss_core IS
     img_mounted          : IN  std_logic_vector(2 DOWNTO 0);
     img_readonly         : IN  std_logic;
     img_size             : IN  std_logic_vector(63 DOWNTO 0);   
-    sd_lba               : OUT std_logic_vector(31 DOWNTO 0);
+    sd_lba0              : OUT std_logic_vector(31 DOWNTO 0);
+    sd_lba1              : OUT std_logic_vector(31 DOWNTO 0);
+    sd_lba2              : OUT std_logic_vector(31 DOWNTO 0);
     sd_rd                : OUT std_logic_vector(2 DOWNTO 0);
     sd_wr                : OUT std_logic_vector(2 DOWNTO 0);
-    sd_ack               : IN  std_logic;
+    sd_ack               : IN  std_logic_vector(2 DOWNTO 0);
     
     sd_buff_addr         : IN std_logic_vector(7 DOWNTO 0);
     sd_buff_dout         : IN std_logic_vector(15 DOWNTO 0);
-    sd_buff_din          : OUT std_logic_vector(15 DOWNTO 0);
+    sd_buff_din0         : OUT std_logic_vector(15 DOWNTO 0);
+    sd_buff_din1         : OUT std_logic_vector(15 DOWNTO 0);
+    sd_buff_din2         : OUT std_logic_vector(15 DOWNTO 0);
     sd_buff_wr           : IN std_logic;
     
     ioctl_download       : IN std_logic;
@@ -159,10 +142,8 @@ END ENTITY ss_core;
 
 --##############################################################################
 ARCHITECTURE rtl OF ss_core IS
-
   
   --###################################################################
-
   CONSTANT OBRAM_ADRS : uv32 := x"1D00_0000";
   CONSTANT TCX_ADRS   : uv32 := x"1D40_0000";
   
@@ -195,7 +176,6 @@ ARCHITECTURE rtl OF ss_core IS
                       sCLR,sGAP,sDOWNLOAD);
   SIGNAL state : enum_state;
   
-  SIGNAL led : uv8;
   SIGNAL ps2_i,ps2_o : uv4;
   CONSTANT iboot : std_logic :='0';
   SIGNAL swconf : uv8;
@@ -245,7 +225,8 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL img0_size,img1_size,img6_size : std_logic_vector(63 DOWNTO 0);
   SIGNAL sd0_lba,sd1_lba,sd6_lba : std_logic_vector(31 DOWNTO 0);
   SIGNAL sd0_rd,sd1_rd,sd6_rd,sd0_wr,sd1_wr,sd6_wr : std_logic;
-  SIGNAL sd_ack2,sd0_ack,sd1_ack,sd6_ack : std_logic;
+  SIGNAL sd0_ack,sd1_ack,sd6_ack : std_logic;
+  SIGNAL sd_ack_delay : std_logic_vector(2 DOWNTO 0);
   SIGNAL sd0_buff_din,sd1_buff_din,sd6_buff_din : std_logic_vector(15 DOWNTO 0);
   SIGNAL sd0_buff_wr,sd1_buff_wr,sd6_buff_wr : std_logic;
   TYPE enum_scsimux IS (sIDLE,sREAD0,sREAD1,sREAD6,
@@ -280,9 +261,6 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL ddram2a_write        ,ddram2b_write : std_logic;
   
   ------------------------------------
-  SIGNAL scsi6f_mist_w : type_scsi_w;
-  SIGNAL scsi6f_mist_r : type_scsi_r;
-
   COMPONENT pll IS
     PORT (
     refclk   : IN std_logic;
@@ -301,10 +279,9 @@ BEGIN
       ACIABREAK  => true,
       SS20       => (SS20=1),
       NCPUS      => NCPUS,
-      -- 12MB scaler + 2MB CG3/TCX + 2MB ROM
       RAMSIZE    => RAMSIZE,
       FPU_MULTI  => (FPU_MULTI=1),
-      ETHERNET   => false, --true, -- FAKE !
+      ETHERNET   => true, -- FAKE !
       PS2        => true,
       TCX_ACCEL  => (TCX_ACCEL=1),
       SPORT2     => true,
@@ -339,8 +316,6 @@ BEGIN
       pal_wr      => fb_pal_wr,
       scsi_w      => scsi_w,
       scsi_r      => scsi_r,
-      scsi6_w     => scsi6f_mist_w,
-      scsi6_r     => scsi6f_mist_r,
       sd_reg_w    => sd_reg_w,
       sd_reg_r    => sd_reg_r,
       rtcinit     => rtcinit,
@@ -385,7 +360,6 @@ BEGIN
       txd4        => txd4,
       cts         => cts,
       rts         => rts,
-      led         => led,
       ps2_i       => ps2_i,
       ps2_o       => ps2_o,
       reset       => preset,
@@ -400,8 +374,6 @@ BEGIN
       dreset      => dreset,
       sclk        => sclk);
   
-  ----------------------------------------------------------
-
   ----------------------------------------------------------
   i_scsi_sd: ENTITY work.scsi_sd
     GENERIC MAP (SYSFREQ => SYSFREQ)
@@ -423,7 +395,7 @@ BEGIN
       clk       => sclk,
       reset_na  => reset_na);
   
-  id_sd<="011" WHEN scsi_conf="100" ELSE "001";
+  id_sd<="001" WHEN scsi_conf="100" ELSE "000";
   
   sd_sck<=sd_clk_o;
   sd_clk_i<=sd_clk_o;
@@ -462,7 +434,7 @@ BEGIN
       clk        => sclk,
       reset_na   => reset_na);
   
-  id0_mist<="011" WHEN scsi_conf="011" ELSE "001";
+  id0_mist<="001" WHEN scsi_conf="011" ELSE "000";
   
   ----------------------------------------------------------
   i_scsi_mist2: ENTITY work.scsi_mist
@@ -486,7 +458,7 @@ BEGIN
       clk        => sclk,
       reset_na   => reset_na);
  
-  id1_mist<="011";
+  id1_mist<="001";
   
   ----------------------------------------------------------
   i_scsi_mist6: ENTITY work.scsi_mist_cdrom
@@ -551,32 +523,42 @@ BEGIN
       END IF;
       
       ----------------------------------
-      sd_ack2<=sd_ack;
+      sd_ack_delay<=sd_ack;
       CASE scsimux IS
         WHEN sIDLE =>
           cptwait<=0;
           IF sd0_rd='1' THEN
             IF img0_mounted='1' THEN scsimux<=sREAD0;
             ELSE scsimux<=sSKIP0; END IF;
-          ELSIF sd0_wr='1' AND img0_mounted='1' THEN
+          ELSIF sd0_wr='1' THEN
             IF img0_mounted='1' THEN scsimux<=sWRITE0;
             ELSE scsimux<=sSKIP0; END IF;
-          ELSIF sd1_rd='1' AND img1_mounted='1'  THEN
+          ELSIF sd1_rd='1' THEN
             IF img1_mounted='1' THEN scsimux<=sREAD1;
             ELSE scsimux<=sSKIP1; END IF;
-          ELSIF sd1_wr='1'  AND img1_mounted='1' THEN
+          ELSIF sd1_wr='1' THEN
             IF img1_mounted='1' THEN scsimux<=sWRITE1;
             ELSE scsimux<=sSKIP1; END IF;
-          ELSIF sd6_rd='1'  AND img6_mounted='1' THEN
+          ELSIF sd6_rd='1' THEN
             IF img6_mounted='1' THEN scsimux<=sREAD6;
             ELSE scsimux<=sSKIP6; END IF;
-          ELSIF sd6_wr='1'  AND img6_mounted='1' THEN
+          ELSIF sd6_wr='1' THEN
             IF img6_mounted='1' THEN scsimux<=sWRITE6;
             ELSE scsimux<=sSKIP6; END IF;
           END IF;
           
-        WHEN sREAD0 | sREAD1 | sREAD6 | sWRITE0 | sWRITE1 | sWRITE6 =>
-          IF sd_ack='0' AND sd_ack2='1' THEN
+        WHEN sREAD0 | sWRITE0 =>
+          IF sd_ack(0)='0' AND sd_ack_delay(0)='1' THEN
+            scsimux<=sWAIT;
+          END IF;
+
+        WHEN sREAD1 | sWRITE1 =>
+          IF sd_ack(1)='0' AND sd_ack_delay(1)='1' THEN
+            scsimux<=sWAIT;
+          END IF;
+
+        WHEN sREAD6 | sWRITE6 =>
+          IF sd_ack(2)='0' AND sd_ack_delay(2)='1' THEN
             scsimux<=sWAIT;
           END IF;
           
@@ -594,29 +576,30 @@ BEGIN
     END IF;
   END PROCESS;
   
-  sd_rd(0)<=to_std_logic(scsimux=sREAD0)  AND NOT sd_ack2;
-  sd_rd(1)<=to_std_logic(scsimux=sREAD1)  AND NOT sd_ack2;
-  sd_rd(2)<=to_std_logic(scsimux=sREAD6)  AND NOT sd_ack2;
-  sd_wr(0)<=to_std_logic(scsimux=sWRITE0) AND NOT sd_ack2;
-  sd_wr(1)<=to_std_logic(scsimux=sWRITE1) AND NOT sd_ack2;
-  sd_wr(2)<=to_std_logic(scsimux=sWRITE6) AND NOT sd_ack2;
+  sd_rd(0)<=to_std_logic(scsimux=sREAD0)  AND NOT sd_ack_delay(0);
+  sd_rd(1)<=to_std_logic(scsimux=sREAD1)  AND NOT sd_ack_delay(1);
+  sd_rd(2)<=to_std_logic(scsimux=sREAD6)  AND NOT sd_ack_delay(2);
+  sd_wr(0)<=to_std_logic(scsimux=sWRITE0) AND NOT sd_ack_delay(0);
+  sd_wr(1)<=to_std_logic(scsimux=sWRITE1) AND NOT sd_ack_delay(1);
+  sd_wr(2)<=to_std_logic(scsimux=sWRITE6) AND NOT sd_ack_delay(2);
   
-  sd0_ack<=(sd_ack AND to_std_logic(scsimux=sREAD0 OR scsimux=sWRITE0))
+  sd0_ack<=(sd_ack(0) AND to_std_logic(scsimux=sREAD0 OR scsimux=sWRITE0))
             OR to_std_logic(scsimux=sSKIP0);
-  sd1_ack<=(sd_ack AND to_std_logic(scsimux=sREAD1 OR scsimux=sWRITE1))
+  sd1_ack<=(sd_ack(1) AND to_std_logic(scsimux=sREAD1 OR scsimux=sWRITE1))
             OR to_std_logic(scsimux=sSKIP1);
-  sd6_ack<=(sd_ack AND to_std_logic(scsimux=sREAD6 OR scsimux=sWRITE6))
+  sd6_ack<=(sd_ack(2) AND to_std_logic(scsimux=sREAD6 OR scsimux=sWRITE6))
             OR to_std_logic(scsimux=sSKIP6);
   sd0_buff_wr<=sd_buff_wr AND to_std_logic(scsimux=sREAD0 OR scsimux=sWRITE0);
   sd1_buff_wr<=sd_buff_wr AND to_std_logic(scsimux=sREAD1 OR scsimux=sWRITE1);
   sd6_buff_wr<=sd_buff_wr AND to_std_logic(scsimux=sREAD6 OR scsimux=sWRITE6);
   
-  sd_buff_din<=sd1_buff_din WHEN scsimux=sREAD1 OR scsimux=sWRITE1 ELSE
-               sd6_buff_din WHEN scsimux=sREAD6 OR scsimux=sWRITE6 ELSE
-               sd0_buff_din;
-  sd_lba<=sd1_lba WHEN scsimux=sREAD1 OR scsimux=sWRITE1 ELSE
-          sd6_lba WHEN scsimux=sREAD6 OR scsimux=sWRITE6 ELSE
-          sd0_lba;
+  sd_buff_din0<=sd0_buff_din;
+  sd_buff_din1<=sd1_buff_din;
+  sd_buff_din2<=sd6_buff_din;
+
+  sd_lba0<=sd0_lba;
+  sd_lba1<=sd1_lba;
+  sd_lba2<=sd6_lba;
   
   ----------------------------------------------------------
   MUX_SCSI:PROCESS(scsi0_mist_r,scsi1_mist_r,scsi6_mist_r,scsi_sd_r,
@@ -677,29 +660,7 @@ BEGIN
     scsi6_mist_w.atn<=scsi_w.atn AND scsi6_mist_r.sel;
     
   END PROCESS MUX_SCSI;
-
-  PROCESS(scsi6_mist_r,scsi6_mist_w) IS
-  BEGIN
-    scsi6f_mist_r<=scsi6_mist_r;
-    scsi6f_mist_w<=scsi6_mist_w;
-    IF scsi6_mist_w.did/="110" THEN
-      scsi6f_mist_r.d<=x"00";
-      scsi6f_mist_r.req<='0';
-      scsi6f_mist_r.phase<="000";
-      scsi6f_mist_r.sel<='0';
-      scsi6f_mist_r.d_pc<="0000000000";
-      
-      scsi6f_mist_w.d<=x"00";
-      scsi6f_mist_w.ack<='0';
-      scsi6f_mist_w.bsy<='0';
-      scsi6f_mist_w.atn<='0';
-      scsi6f_mist_w.did<="000";
-      scsi6f_mist_w.rst<='0';
-      scsi6f_mist_w.d_state<="0000";
-      
-    END IF;
-  END PROCESS;
-
+  
   disk_busy<=busy0_mist OR busy_sd OR busy1_mist OR busy6_mist;
   
   ----------------------------------------------------------
@@ -888,10 +849,6 @@ BEGIN
   swconf(6)<=viboot WHEN rising_edge(sclk);
   swconf(7)<='0';
   
---  swconf<=unsigned('0' & viboot & NOT l2tlbena & NOT cachena &
---                  NOT autoboot & NOT tcx & scsi_bis & scsi_sel) WHEN rising_edge(sclk);
-  
-  
   ----------------------------------------------------------
   i_pll: pll
     PORT MAP (
@@ -901,10 +858,6 @@ BEGIN
       outclk_1 => clk80m,
       outclk_2 => clk40m,
       locked   => spll_locked);
-  
-  --sclk<=clk_50m;
-  --sclk<=clk65m;
-  --sclk<=clk40m;
   
   gen40:IF SYSFREQ=40_000_000 GENERATE
      sclk<=clk40m;
@@ -921,8 +874,6 @@ BEGIN
   ASSERT SYSFREQ=40_000_000 OR SYSFREQ=50_000_000 OR SYSFREQ=65_000_000
     SEVERITY failure;  
   
-  -- 125MHz/2 = 62.5MHz
-  --vga_clk<=NOT vga_clk WHEN rising_edge(clock_125_p);
   clk_sys<=sclk;
   
   -----------------------------------

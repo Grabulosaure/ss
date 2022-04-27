@@ -134,6 +134,7 @@ wire SD_CS, SD_CLK, SD_MOSI;
 `endif
 wire SD_MISO = mcp_sdcd ? sd_miso : SD_SPI_MISO;
 
+/*
 `ifndef MISTER_DUAL_SDRAM
 	assign SDIO_DAT[2:1]= 2'bZZ;
 	assign SDIO_DAT[3]  = SW[3] ? 1'bZ  : SD_CS;
@@ -146,7 +147,7 @@ wire SD_MISO = mcp_sdcd ? sd_miso : SD_SPI_MISO;
 
 assign SD_SPI_CLK  = mcp_sdcd ? 1'bZ : SD_CLK;
 assign SD_SPI_MOSI = mcp_sdcd ? 1'bZ : SD_MOSI;
-
+*/
 //////////////////////  LEDs/Buttons  ///////////////////////////////////
 
 reg [7:0] led_overtake = 0;
@@ -1652,7 +1653,7 @@ emu emu
 
 	.BUTTONS(btn),
 	.OSD_STATUS(osd_status),
-
+/*
 	.SD_SCK(SD_CLK),
 	.SD_MOSI(SD_MOSI),
 	.SD_MISO(SD_MISO),
@@ -1662,7 +1663,10 @@ emu emu
 `else
 	.SD_CD(mcp_sdcd & (SW[0] ? VGA_HS : (SW[3] | SDCD_SPDIF))),
 `endif
-
+*/
+	.SDIO_DAT(SDIO_DAT),
+	.SDIO_CMD(SDIO_CMD),
+	.SDIO_CLK(SDIO_CLK),
 	.UART_CTS(uart_rts),
 	.UART_RTS(uart_cts),
 	.UART_RXD(uart_txd),

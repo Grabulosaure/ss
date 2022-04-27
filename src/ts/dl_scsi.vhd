@@ -127,9 +127,6 @@ BEGIN
       sig(15 DOWNTO  8)<=ack_v & req_v & scsi_w.rst & scsi_w.did & scsi_w.atn & scsi_w.bsy;
       sig(23 DOWNTO 16)<=scsi_r.d;
       sig(31 DOWNTO 24)<=aux(3 DOWNTO 0) & scsi_r.sel & scsi_r.phase;
-      IF conf_state='1' THEN
-        sig(31 DOWNTO 28)<=scsi_w.d_state;
-      END IF;
       
       sig(47 DOWNTO 32)<=scsi_r.d_pc(9 DOWNTO 0) & aux(9 DOWNTO 4);
       sig(63 DOWNTO 48)<=timediv;

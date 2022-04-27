@@ -101,13 +101,17 @@ module emu
 	//ADC
 	inout   [3:0] ADC_BUS,
 
-	//SD-SPI
+	//SDIO
+	inout  [3:0]  SDIO_DAT,
+	inout         SDIO_CMD,
+	output        SDIO_CLK,
+/*
 	output        SD_SCK,
 	output        SD_MOSI,
 	input         SD_MISO,
 	output        SD_CS,
 	input         SD_CD,
-
+*/
 	//High latency DDR3 RAM interface
 	//Use for non-critical time purposes
 	output        DDRAM_CLK,
@@ -203,21 +207,15 @@ wire clk_sys;
 /* 0         1         2         3          4         5         6   
    01234567890123456789012345678901 23456789012345678901234567890123
    0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
+    XXXXXX XXXXXX  XXXXXX
 */
 
 `include "build_id.v" 
 
-// SCSI
-// IMG
-// SD
-// IMG/SD
-// SD/IMG
-// CDROM ON/OFF
-
 localparam CONF_STR = {
     "SparcStation;;" ,
     "-;" ,
-    "O31,SCSI,Image,Direct SD,Image+Image,SD+Image,Image+SD;" ,
+    "O13,SCSI,Image,Direct SD,Image+Image,SD+Image,Image+SD;" ,
     "S0,RAW,HD;" ,
     "S1,RAW,HD2;" ,
     "O45,CDROM,OFF,512,2048;" ,
@@ -231,14 +229,14 @@ localparam CONF_STR = {
     "-;" ,
     "TV,RESET;" ,
     "-;" ,
-    "OG,Cachena,On,Off;" ,
-    "OH,L2TLB,On,Off;" ,
+    "OG,Cachena,ON,OFF;" ,
+    "OH,L2TLB,OFF,ON;" ,
     "OI,WB,OFF,ON;" ,
     "OJ,AOW,OFF,ON;" ,
     "OKL,IOMMU rev,26 (Default),11 (Next),23,30;" ,
     "F,ROM,BIOS;" ,
     "-;" ,
-	"V,v",`BUILD_DATE 
+    "V,v",`BUILD_DATE 
 };
 
 wire forced_scandoubler;
@@ -247,13 +245,13 @@ wire  [63:0] status;
 wire  [2:0]  img_mounted;
 wire  img_readonly;
 wire  [63:0] img_size;
-wire  [31:0] sd_lba;
+wire  [31:0] sd_lba0,sd_lba1,sd_lba2;
 wire  [2:0] sd_rd;
 wire  [2:0] sd_wr;
-wire  sd_ack;
+wire  [2:0] sd_ack;
 wire  [7:0] sd_buff_addr;
 wire  [15:0] sd_buff_dout;
-wire  [15:0] sd_buff_din;
+wire  [15:0] sd_buff_din0,sd_buff_din1,sd_buff_din2;
 wire  sd_buff_wr;
 wire  ioctl_download;
 wire  [7:0] ioctl_index;
@@ -276,27 +274,6 @@ hps_io
  (
   .clk_sys(clk_sys),
   .HPS_BUS(HPS_BUS),
-  .status(status),
-  .status_in(status),
-  .img_mounted(img_mounted),
-  .img_readonly(img_readonly),
-  .img_size(img_size),
-  .sd_lba('{sd_lba, sd_lba, sd_lba}),
-  .sd_blk_cnt('{0,0, 0}),
-  .sd_rd(sd_rd),
-  .sd_wr(sd_wr),
-  .sd_ack(sd_ack),
-  .sd_buff_addr(sd_buff_addr),
-  .sd_buff_dout(sd_buff_dout),
-  .sd_buff_din('{sd_buff_din,sd_buff_din,sd_buff_din}),
-  .sd_buff_wr(sd_buff_wr),
-  .ioctl_download(ioctl_download),
-  .ioctl_index(ioctl_index),
-  .ioctl_wr(ioctl_wr),
-  .ioctl_addr(ioctl_addr),
-  .ioctl_dout(ioctl_dout),
-  .ioctl_wait(ioctl_wait),
-  .RTC(RTC),
   .ps2_kbd_clk_out(ps2_kbd_clk_out),
   .ps2_kbd_data_out(ps2_kbd_data_out),
   .ps2_kbd_clk_in(ps2_kbd_clk_in),
@@ -306,7 +283,33 @@ hps_io
   .ps2_mouse_clk_out(ps2_mouse_clk_out),
   .ps2_mouse_data_out(ps2_mouse_data_out),
   .ps2_mouse_clk_in(ps2_mouse_clk_in),
-  .ps2_mouse_data_in(ps2_mouse_data_in)
+  .ps2_mouse_data_in(ps2_mouse_data_in),
+
+  .status(status),
+  .status_in(status),
+
+  .img_mounted(img_mounted),
+  .img_readonly(img_readonly),
+  .img_size(img_size),
+
+  .sd_lba('{sd_lba0, sd_lba1, sd_lba2}),
+  .sd_blk_cnt('{0, 0, 0}),
+  .sd_rd(sd_rd),
+  .sd_wr(sd_wr),
+  .sd_ack(sd_ack),
+
+  .sd_buff_addr(sd_buff_addr),
+  .sd_buff_dout(sd_buff_dout),
+  .sd_buff_din('{sd_buff_din0,sd_buff_din1,sd_buff_din2}),
+  .sd_buff_wr(sd_buff_wr),
+
+  .ioctl_download(ioctl_download),
+  .ioctl_index(ioctl_index),
+  .ioctl_wr(ioctl_wr),
+  .ioctl_addr(ioctl_addr),
+  .ioctl_dout(ioctl_dout),
+  .ioctl_wait(ioctl_wait),
+  .RTC(RTC)
 
 );
 
@@ -321,8 +324,8 @@ assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 wire autoboot  = ~status[8];
 wire viboot    = ~status[9];
 wire tcx       = ~status[10];
-assign FB_EN = 0; //status[9];
-wire vga_dis   = 0; //status[9];
+assign FB_EN = 0;
+wire vga_dis   = 0;
 
 /* PS2 to Sun keyboard layout
   "Layouts for Type 4, 5, and 5c Keyboards"
@@ -337,7 +340,7 @@ wire [7:0] kbm_layout = (status[13:12]==0)?8'h21:
                         (status[13:12]==2)?8'h25:8'h2A;
 
 wire cachena   = !status[16];
-wire l2tlbena  = !status[17];
+wire l2tlbena  = status[17];
 wire wback     = status[18];
 wire aow       = status[19];
 
@@ -363,8 +366,6 @@ ss_core
   .SYSFREQ(50000000),
   .SS20(1),
   .NCPUS(3),
-  //.NCPUS(2),
-  //.NCPUS(1),
   .TRACE(1),
 `endif  
   .FPU_MULTI(0),
@@ -394,11 +395,9 @@ ss_core
  .led_user(LED_USER),
  .led_power(LED_POWER[0]),
     
- .sd_sck(sd_sck),
- .sd_dat(sd_dat),
- .sd_cmd(sd_cmd),
- .sd_cd(sd_cd),
-    
+ .sd_sck(SDIO_CLK),
+ .sd_dat(SDIO_DAT),
+ .sd_cmd(SDIO_CMD),
  .ddram_clk(DDRAM_CLK),
  .ddram_waitrequest(DDRAM_BUSY),
  .ddram_burstcount(DDRAM_BURSTCNT),
@@ -438,13 +437,17 @@ ss_core
  .img_mounted(img_mounted),
  .img_readonly(img_readonly),
  .img_size(img_size),
- .sd_lba(sd_lba),
+ .sd_lba0(sd_lba0),
+ .sd_lba1(sd_lba1),
+ .sd_lba2(sd_lba2),
  .sd_rd(sd_rd),
  .sd_wr(sd_wr),
  .sd_ack(sd_ack),
  .sd_buff_addr(sd_buff_addr),
  .sd_buff_dout(sd_buff_dout),
- .sd_buff_din(sd_buff_din),
+ .sd_buff_din0(sd_buff_din0),
+ .sd_buff_din1(sd_buff_din1),
+ .sd_buff_din2(sd_buff_din2),
  .sd_buff_wr(sd_buff_wr),
  .ioctl_download(ioctl_download),
  .ioctl_index(ioctl_index),

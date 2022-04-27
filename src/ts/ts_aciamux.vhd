@@ -57,26 +57,7 @@ END ENTITY ts_aciamux;
 --##############################################################################
 
 ARCHITECTURE rtl OF ts_aciamux IS
-
-  COMPONENT acia IS
-    GENERIC (
-      TFIFO : natural;
-      RFIFO : natural);
-    PORT (
-      sync     : IN  std_logic;
-      txd      : OUT std_logic;
-      tx_data  : IN  uv8;
-      tx_req   : IN  std_logic;
-      tx_rdy   : OUT std_logic;
-      rxd      : IN  std_logic;
-      rx_data  : OUT uv8;
-      rx_break : OUT std_logic;
-      rx_req   : OUT std_logic;
-      rx_ack   : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT acia;
-
+  
   SIGNAL tx_data  : uv8;
   SIGNAL tx_req   : std_logic;
   SIGNAL tx_rdy   : std_logic;
@@ -88,7 +69,7 @@ ARCHITECTURE rtl OF ts_aciamux IS
   
 BEGIN
 
-  i_acia: acia
+  i_acia: ENTITY work.acia
     GENERIC MAP (
       TFIFO => TFIFO,
       RFIFO => RFIFO)

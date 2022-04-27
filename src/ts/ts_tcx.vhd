@@ -199,7 +199,7 @@ ARCHITECTURE rtl OF ts_tcx IS
 BEGIN
 
   vga_run <=vga_ctrl(0) AND NOT vga_dis;
-  conf.bpp<="011"; --vga_ctrl(3 DOWNTO 1);
+  conf.bpp<="011";
   conf.hf <='0'; 
   conf.col<='0';
   conf.pal<="00";

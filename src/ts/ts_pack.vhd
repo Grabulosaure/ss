@@ -155,7 +155,6 @@ PACKAGE ts_pack IS
    atn     : std_logic;  -- Attention
    did     : uv3;        -- Destination ID
    rst     : std_logic;  -- RESET
-   d_state : uv4;
   END RECORD;
   
   TYPE type_scsi_r IS RECORD
