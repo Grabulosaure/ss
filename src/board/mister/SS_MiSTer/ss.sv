@@ -213,7 +213,7 @@ wire clk_sys;
 `include "build_id.v" 
 
 localparam CONF_STR = {
-    "SparcStation;;" ,
+    "SparcStation;UART115200:4000000(Turbo 115200),MIDI;" ,
     "-;" ,
     "O13,SCSI,Image,Direct SD,Image+Image,SD+Image,Image+SD;" ,
     "S0,RAW,HD;" ,
