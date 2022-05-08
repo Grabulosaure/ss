@@ -136,6 +136,11 @@ ENTITY ss_core IS
     ps2_mouse_clk_in      : OUT std_logic;
     ps2_mouse_data_in     : OUT std_logic;
     
+    rmii_rxd              : IN  std_logic_vector(1 DOWNTO 0);
+    rmii_txd              : OUT std_logic_vector(1 DOWNTO 0);
+    rmii_txen             : OUT std_logic;
+    rmii_clk              : IN  std_logic;
+    
     uart_txd        : OUT   std_logic;
     uart_rxd        : IN    std_logic);
 END ENTITY ss_core;
@@ -204,7 +209,7 @@ ARCHITECTURE rtl OF ss_core IS
   -- SD/MMC
   SIGNAL ddram_address_i,ddram2_address_i : std_logic_vector(28 DOWNTO 0);
   
-  -- PHY Ethernet (absent)
+  -- PHY Ethernet
   SIGNAL phy_mdio_o,phy_mdc,phy_mdio_i : std_logic;
   SIGNAL phy_mdio_en,phy_int_n,phy_reset_n : std_logic;
   SIGNAL phy_txd,phy_rxd : uv4;
@@ -513,7 +518,7 @@ BEGIN
       END IF;
       IF img_mounted(2)='1' THEN
         img6_size<=img_size;
-        img6_readonly<=img_readonly;
+        img6_readonly<='1';
         img6_mounted<='1';
       END IF;
       IF reset_na='0' THEN
@@ -609,42 +614,36 @@ BEGIN
     scsi1_mist_w<=scsi_w;
     scsi6_mist_w<=scsi_w;
     scsi_sd_w <=scsi_w;
-    
-    CASE scsi_conf IS
-      WHEN "000" => -- HD Image
-        IF scsi_cdconf/="00" AND scsi6_mist_r.sel='1' THEN
-          scsi_r<=scsi6_mist_r;
-        ELSE
+
+    IF scsi_cdconf/="00" AND scsi6_mist_r.sel='1' THEN
+      scsi_r<=scsi6_mist_r;
+    ELSE
+      CASE scsi_conf IS
+        WHEN "000" => -- HD Image
           scsi_r<=scsi0_mist_r;
-        END IF;
-      WHEN "001" => -- SDCARD
-        IF scsi_cdconf/="00" AND scsi6_mist_r.sel='1' THEN
-          scsi_r<=scsi6_mist_r;
-        ELSE
+          
+        WHEN "001" => -- SDCARD
           scsi_r<=scsi_sd_r;
-        END IF;
-        
-      WHEN "010" => -- Image + Image
-        IF scsi_cdconf/="00" AND scsi6_mist_r.sel='1' THEN
-          scsi_r<=scsi6_mist_r;
-        ELSIF scsi0_mist_r.sel='1' THEN
+          
+        WHEN "010" => -- Image + Image
+          IF scsi1_mist_r.sel='1' THEN
+            scsi_r<=scsi1_mist_r;
+          ELSE
+            scsi_r<=scsi0_mist_r;
+          END IF;
+          
+        WHEN "011" | "100" => -- SD + Image / Image + SD
+          IF scsi_sd_r.sel='1' THEN
+            scsi_r<=scsi_sd_r;
+          ELSE
+            scsi_r<=scsi0_mist_r;
+          END IF;
+          
+        WHEN OTHERS =>
           scsi_r<=scsi0_mist_r;
-        ELSIF scsi1_mist_r.sel='1' THEN
-          scsi_r<=scsi1_mist_r;
-        END IF;
-        
-      WHEN "011" | "100" => -- SD + Image / Image + SD
-        IF scsi_cdconf/="00" AND scsi6_mist_r.sel='1' THEN
-          scsi_r<=scsi6_mist_r;
-        ELSIF scsi0_mist_r.sel='1' THEN
-          scsi_r<=scsi0_mist_r;
-        ELSIF scsi_sd_r.sel='1' THEN
-          scsi_r<=scsi_sd_r;
-        END IF;
-      WHEN OTHERS =>
-        scsi_r<=scsi0_mist_r;
-        
-    END CASE;
+          
+      END CASE;
+    END IF;
     
     scsi_sd_w.bsy   <=scsi_w.bsy AND scsi_sd_r.sel;
     scsi_sd_w.ack   <=scsi_w.ack AND scsi_sd_r.sel;
@@ -786,6 +785,18 @@ BEGIN
   iic1_sda_i<='0';
   iic2_sda_i<='0';
   iic3_sda_i<='0';
+
+  ----------------------------------------------------------
+  -- PHY RMII
+  rmii_txd<=std_logic_vector(phy_txd(1 DOWNTO 0));
+  rmii_txen<=phy_tx_en;
+  
+  phy_tx_clk<=rmii_clk;
+  phy_rx_clk<=rmii_clk;
+  phy_rxd<=unsigned("00" & rmii_rxd(1 DOWNTO 0));
+  phy_rx_dv<='0';
+  phy_rx_er<='0';
+  phy_crs<='0';
   
   ----------------------------------------------------------
   -- UART

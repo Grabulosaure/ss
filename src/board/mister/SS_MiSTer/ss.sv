@@ -158,13 +158,10 @@ module emu
 	output        UART_DTR,
 	input         UART_DSR,
 
-	// Open-drain User port.
-	// 0 - D+/RX
-	// 1 - D-/TX
-	// 2..6 - USR2..USR6
-	// Set USER_OUT to 1 to read from USER_IN.
+	// User port.
+	output  [6:0] USER_EN,
+ 	output  [6:0] USER_OUT,
 	input   [6:0] USER_IN,
-	output  [6:0] USER_OUT,
 
 	input         OSD_STATUS
 );
@@ -172,7 +169,7 @@ module emu
 ///////// Default values for ports not used in this core /////////
 
 assign ADC_BUS  = 'Z;
-assign USER_OUT = '1;
+
 assign {UART_RTS, UART_DTR} = 0;
 assign {SD_SCK, SD_MOSI, SD_CS} = 'Z;
 assign {SDRAM_DQ, SDRAM_A, SDRAM_BA, SDRAM_CLK, SDRAM_CKE, SDRAM_DQML, SDRAM_DQMH, SDRAM_nWE, SDRAM_nCAS, SDRAM_nRAS, SDRAM_nCS} = 'Z;
@@ -207,7 +204,7 @@ wire clk_sys;
 /* 0         1         2         3          4         5         6   
    01234567890123456789012345678901 23456789012345678901234567890123
    0123456789ABCDEFGHIJKLMNOPQRSTUV 0123456789ABCDEFGHIJKLMNOPQRSTUV
-    XXXXXX XXXXXX  XXXXXX
+    XXXXXX XXXXXX  XXXXXX X
 */
 
 `include "build_id.v" 
@@ -218,7 +215,7 @@ localparam CONF_STR = {
     "O13,SCSI,Image,Direct SD,Image+Image,SD+Image,Image+SD;" ,
     "S0,RAW,HD;" ,
     "S1,RAW,HD2;" ,
-    "O45,CDROM,OFF,512,2048;" ,
+    "O45,CDROM,OFF,2048,512;" ,
     "S2,ISO,CDROM;" ,
     "O6,Aspect ratio,4:3,16:9,[ARC1],[ARC2];" ,
     "O8,AutoBoot,ON,OFF;" ,
@@ -231,9 +228,12 @@ localparam CONF_STR = {
     "-;" ,
     "OG,Cachena,ON,OFF;" ,
     "OH,L2TLB,OFF,ON;" ,
+`ifdef SS20
     "OI,WB,OFF,ON;" ,
     "OJ,AOW,OFF,ON;" ,
+`endif
     "OKL,IOMMU rev,26 (Default),11 (Next),23,30;" ,
+    "ON,Ethernet PHY present,NO,YES;",
     "F,ROM,BIOS;" ,
     "-;" ,
     "V,v",`BUILD_DATE 
@@ -355,6 +355,9 @@ wire [3:0] sd_dat;
 wire sd_cmd;
 wire sd_cd;
 
+wire [1:0] rmii_txd,rmii_rxd;
+wire rmii_txen,rmii_clk;
+
 ss_core 
 #(
 `ifndef SS20
@@ -466,7 +469,10 @@ ss_core
  .ps2_mouse_data_out(ps2_mouse_data_out),
  .ps2_mouse_clk_in(ps2_mouse_clk_in),
  .ps2_mouse_data_in(ps2_mouse_data_in),
- 
+ .rmii_rxd(rmii_rxd),
+ .rmii_txd(rmii_txd),
+ .rmii_txen(rmii_txen),
+ .rmii_clk(rmii_clk),
  .uart_txd(UART_TXD),
  .uart_rxd(UART_RXD)
 
@@ -475,4 +481,19 @@ ss_core
 assign VGA_F1 =0;
 assign VGA_SL =0;
 
+/* ETHERNET PHY
+   0 : RX1
+   1 : RX0
+   2 : RX_CLK
+   3 : TXEN
+   4 : TX1
+   5 : TX0
+   6 : NC
+ */
+
+assign USER_EN = status[23] ? 7'b0111000 : 7'b0000000 ;
+assign USER_OUT = {1'b0,rmii_txd[0],rmii_txd[1],rmii_txen,3'b0};
+assign rmii_rxd = {USER_IN[1],USER_IN[0]};
+assign rmii_clk = USER_IN[2];
+   
 endmodule

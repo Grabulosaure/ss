@@ -1444,7 +1444,7 @@ alsa alsa
 );
 
 ////////////////  User I/O (USB 3.0 connector) /////////////////////////
-
+/*
 assign USER_IO[0] =                       !user_out[0]  ? 1'b0 : 1'bZ;
 assign USER_IO[1] =                       !user_out[1]  ? 1'b0 : 1'bZ;
 assign USER_IO[2] = !(SW[1] ? HDMI_I2S   : user_out[2]) ? 1'b0 : 1'bZ;
@@ -1460,8 +1460,26 @@ assign user_in[3] =         USER_IO[3];
 assign user_in[4] = SW[1] | USER_IO[4];
 assign user_in[5] = SW[1] | USER_IO[5];
 assign user_in[6] =         USER_IO[6];
+*/
 
+wire [6:0] user_out, user_in, user_en;
+   
+assign USER_IO[0] = user_en[0] ? user_out[0] : 1'bZ;
+assign USER_IO[1] = user_en[1] ? user_out[1] : 1'bZ;
+assign USER_IO[2] = user_en[2] ? user_out[2] : 1'bZ;
+assign USER_IO[3] = user_en[3] ? user_out[3] : 1'bZ;
+assign USER_IO[4] = user_en[4] ? user_out[4] : 1'bZ;
+assign USER_IO[5] = user_en[5] ? user_out[5] : 1'bZ;
+assign USER_IO[6] = user_en[6] ? user_out[6] : 1'bZ;
 
+assign user_in[0] = USER_IO[0];
+assign user_in[1] = USER_IO[1];
+assign user_in[2] = USER_IO[2];
+assign user_in[3] = USER_IO[3];
+assign user_in[4] = USER_IO[4];
+assign user_in[5] = USER_IO[5];
+assign user_in[6] = USER_IO[6];
+   
 ///////////////////  User module connection ////////////////////////////
 
 wire        clk_sys;
@@ -1494,7 +1512,6 @@ wire  [1:0] btn;
 sync_fix sync_v(clk_vid, vs_emu, vs_fix);
 sync_fix sync_h(clk_vid, hs_emu, hs_fix);
 
-wire  [6:0] user_out, user_in;
 
 assign clk_ihdmi= clk_vid;
 assign ce_hpix  = vga_ce_sl;
@@ -1674,6 +1691,7 @@ emu emu
 	.UART_DTR(uart_dsr),
 	.UART_DSR(uart_dtr),
 
+	.USER_EN(user_en),
 	.USER_OUT(user_out),
 	.USER_IN(user_in)
 );
