@@ -48,8 +48,9 @@ It's better to reboot MiSTer when trying different OSes, probably a few missing 
 When trying different IOMMU rev options, do a core RESET after applying a new value as this is copied by the BIOS into
 a configuration structure.
 
-I've also disabled as default The L2TLB which is a pity as it offers something like a 30% speed boost. I think there is some
-way to check which OS could support it, or try to find a bug.
+CDROM works with Solaris (8), NextSTEP, Linux (RH). To mount the CD with Solaris, type : " mount -F hsfs -r /dev/dsk/c0t6d0s0 /cdrom", for old Linux, it's "/dev/scd0"
+
+I've changed L2TLB control so that it can be enabled/disabled at any time. NextSTEP isn't compatible, Solaris and Linux seem safe. There are a few other possible tweaks for better performance, I'm curious of the effects on real-time games.
 
 The Ethernet interface isn't enabled on MiSTer. It used to work on the Xilinx board with a direct MII PHY.
 
