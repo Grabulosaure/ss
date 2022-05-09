@@ -48,7 +48,8 @@ ENTITY scsi_mist_cdrom IS
     hd_mounted : IN std_logic; -- Mounted 
     hd_ro      : IN std_logic; -- Read Only
 
-    ssize      : IN std_logic; -- Sector Size 0=512 1=2048
+    ssize      : IN std_logic; -- Sector Size 0=2048 1=512
+    
     -- Global
     clk      : IN std_logic;
     reset_na : IN std_logic
@@ -149,8 +150,11 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         TEST_EVPD,
         TEST_LEN,
         LDA_I,
+        LDA_DBD,
+        TEST_DBD,
         LDA_R,
         LDA_SECTOR,
+        TEST_PC,
         SCSI_WR_A);
 
   TYPE type_microcode IS RECORD
@@ -180,7 +184,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (NOP            ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ACC      ), 
         (NOP            ,Z&x"00"        ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (TEST_EQ        ,Z&x"00"        ), 
         (LAB            ,to_unsigned(31,10)), 
         (SET_MODE       ,Z&"00000"&SCSI_COMMAND), 
@@ -191,41 +195,43 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (NOP            ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ACC      ), 
         (SCSI_RD        ,Z&REG_LUN_ADRS2), 
-        (LAB            ,to_unsigned(60,10)), 
+        (LAB            ,to_unsigned(62,10)), 
         (TEST_EQ        ,Z&OP_READ_6    ), 
-        (LAB            ,to_unsigned(67,10)), 
+        (LAB            ,to_unsigned(69,10)), 
         (TEST_EQ        ,Z&OP_READ_10   ), 
-        (LAB            ,to_unsigned(156,10)), 
+        (LAB            ,to_unsigned(158,10)), 
         (TEST_EQ        ,Z&OP_INQUIRY   ), 
-        (LAB            ,to_unsigned(339,10)), 
+        (LAB            ,to_unsigned(387,10)), 
         (TEST_EQ        ,Z&OP_TEST_UNIT_READY), 
         (TEST_EQ        ,Z&OP_START_STOP_UNIT), 
         (TEST_EQ        ,Z&OP_ALLOW_MEDIUM_REMOVAL), 
-        (LAB            ,to_unsigned(241,10)), 
+        (LAB            ,to_unsigned(243,10)), 
         (TEST_EQ        ,Z&OP_MODE_SENSE_6), 
-        (LAB            ,to_unsigned(274,10)), 
+        (LAB            ,to_unsigned(312,10)), 
+        (TEST_EQ        ,Z&OP_MODE_SENSE_10), 
+        (LAB            ,to_unsigned(322,10)), 
         (TEST_EQ        ,Z&OP_READ_CAPACITY), 
-        (LAB            ,to_unsigned(303,10)), 
+        (LAB            ,to_unsigned(351,10)), 
         (TEST_EQ        ,Z&OP_REQUEST_SENSE), 
-        (LAB            ,to_unsigned(345,10)), 
+        (LAB            ,to_unsigned(393,10)), 
         (TEST_EQ        ,Z&OP_SYNCHRONIZE_CACHE), 
-        (LAB            ,to_unsigned(380,10)), 
+        (LAB            ,to_unsigned(428,10)), 
         (TEST_EQH       ,Z&x"00"        ), 
-        (LAB            ,to_unsigned(376,10)), 
+        (LAB            ,to_unsigned(424,10)), 
         (TEST_EQH       ,Z&x"20"        ), 
         (TEST_EQH       ,Z&x"40"        ), 
-        (LAB            ,to_unsigned(374,10)), 
+        (LAB            ,to_unsigned(422,10)), 
         (TEST_EQH       ,Z&x"A0"        ), 
-        (LAB            ,to_unsigned(370,10)), 
+        (LAB            ,to_unsigned(418,10)), 
         (TEST_EQH       ,Z&x"80"        ), 
-        (LAB            ,to_unsigned(386,10)), 
+        (LAB            ,to_unsigned(434,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS1    ), 
         (SCSI_RD        ,Z&REG_ADRS0    ), 
         (SCSI_RD        ,Z&REG_LEN0     ), 
         (SCSI_RD        ,Z&REG_CONTROL  ), 
         (FIXLEN         ,Z&x"00"        ), 
-        (LAB            ,to_unsigned(75,10)), 
+        (LAB            ,to_unsigned(77,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS3    ), 
         (SCSI_RD        ,Z&REG_ADRS2    ), 
@@ -235,17 +241,17 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_RD        ,Z&REG_LEN1     ), 
         (SCSI_RD        ,Z&REG_LEN0     ), 
         (SCSI_RD        ,Z&REG_CONTROL  ), 
-        (LAB            ,to_unsigned(386,10)), 
+        (LAB            ,to_unsigned(434,10)), 
         (TEST_ADRS      ,Z&x"00"        ), 
         (NOP            ,Z&x"00"        ), 
         (SET_MODE       ,Z&"00000"&SCSI_DATA_IN), 
         (NOP            ,Z&x"00"        ), 
         (HD_CMD         ,Z&(CMD_WAIT OR CMD_CLR OR CMD_RD)), 
-        (LAB            ,to_unsigned(82,10)), 
+        (LAB            ,to_unsigned(84,10)), 
         (LDCPT          ,Z&x"0F"        ), 
         (INC_COUNT      ,Z&x"00"        ), 
         (HD_CMD         ,Z&(CMD_WAIT OR CMD_TOG OR CMD_RD)), 
-        (LAB            ,to_unsigned(86,10)), 
+        (LAB            ,to_unsigned(88,10)), 
         (HD_DR          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (HD_DR          ,Z&x"00"        ), 
@@ -311,16 +317,16 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (HD_DR          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LOOP_CPT       ,Z&x"00"        ), 
-        (LAB            ,to_unsigned(82,10)), 
+        (LAB            ,to_unsigned(84,10)), 
         (HD_CMD         ,Z&CMD_TOG2     ), 
         (LOOP_SECCNT    ,Z&x"00"        ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ACC      ), 
         (SCSI_RD        ,Z&REG_ADRS0    ), 
         (SCSI_RD        ,Z&REG_LEN0     ), 
         (SCSI_RD        ,Z&REG_CONTROL  ), 
-        (LAB            ,to_unsigned(387,10)), 
+        (LAB            ,to_unsigned(435,10)), 
         (TEST_LUN       ,Z&x"00"        ), 
         (TEST_EVPD      ,Z&x"01"        ), 
         (TEST_LEN       ,Z&x"24"        ), 
@@ -333,7 +339,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"02"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
-        (LDA_I          ,Z&x"00"        ), 
+        (LDA_I          ,Z&x"02"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"1F"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
@@ -399,7 +405,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&to_unsigned(character'pos(INQ_RID(4)),8)), 
         (SCSI_WR        ,Z&REG_ACC      ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS1    ), 
         (SCSI_RD        ,Z&REG_ADRS0    ), 
@@ -410,13 +416,15 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (NOP            ,Z&x"00"        ), 
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
-        (LDA_I          ,Z&x"00"        ), 
-        (SCSI_WR        ,Z&REG_ACC      ), 
-        (LDA_I          ,Z&x"80"        ), 
-        (SCSI_WR        ,Z&REG_ACC      ), 
-        (LDA_I          ,Z&x"08"        ), 
+        (LDA_I          ,Z&x"01"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_DBD        ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LAB            ,to_unsigned(276,10)), 
+        (TEST_DBD       ,Z&x"00"        ), 
+        (LDA_I          ,Z&x"01"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_R          ,Z&REG_CAPA2    ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
@@ -432,7 +440,51 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(310,10)), 
+        (TEST_PC        ,"01"&x"2A"     ), 
+        (LDA_I          ,Z&x"2A"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"0E"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"00"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"02"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"C2"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"02"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"C2"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"02"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"C2"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"02"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LDA_I          ,Z&x"C2"        ), 
+        (SCSI_WR        ,Z&REG_ACC      ), 
+        (LAB            ,to_unsigned(403,10)), 
+        (GOTO           ,Z&x"00"        ), 
+        (SCSI_RD        ,Z&REG_ADRS1    ), 
+        (SCSI_RD        ,Z&REG_ADRS0    ), 
+        (SCSI_RD        ,Z&REG_LEN1     ), 
+        (SCSI_RD        ,Z&REG_LEN1     ), 
+        (SCSI_RD        ,Z&REG_LEN1     ), 
+        (SCSI_RD        ,Z&REG_LEN1     ), 
+        (SCSI_RD        ,Z&REG_LEN0     ), 
+        (SCSI_RD        ,Z&REG_CONTROL  ), 
+        (LAB            ,to_unsigned(247,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS3    ), 
         (SCSI_RD        ,Z&REG_ADRS2    ), 
@@ -461,7 +513,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS1    ), 
         (SCSI_RD        ,Z&REG_ADRS0    ), 
@@ -469,16 +521,16 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_RD        ,Z&REG_CONTROL  ), 
         (NOP            ,Z&x"00"        ), 
         (SET_MODE       ,Z&"00000"&SCSI_DATA_IN), 
-        (LAB            ,to_unsigned(387,10)), 
+        (LAB            ,to_unsigned(435,10)), 
         (TEST_LEN       ,Z&x"07"        ), 
-        (LAB            ,to_unsigned(320,10)), 
+        (LAB            ,to_unsigned(368,10)), 
         (TEST_LUN       ,Z&x"00"        ), 
         (LDA_I          ,Z&x"F0"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDA_R          ,z&REG_SENSE    ), 
-        (LAB            ,to_unsigned(325,10)), 
+        (LAB            ,to_unsigned(373,10)), 
         (GOTO           ,Z&x"00"        ), 
         (LDA_I          ,Z&x"F0"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
@@ -497,13 +549,13 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR        ,Z&REG_ACC      ), 
         (LDS_I          ,Z&SENSE_NO_SENSE), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS1    ), 
         (SCSI_RD        ,Z&REG_ADRS0    ), 
         (SCSI_RD        ,Z&REG_LEN0     ), 
         (SCSI_RD        ,Z&REG_CONTROL  ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (SCSI_RD        ,Z&REG_ADRS3    ), 
         (SCSI_RD        ,Z&REG_ADRS2    ), 
@@ -513,7 +565,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (SCSI_RD        ,Z&REG_LEN1     ), 
         (SCSI_RD        ,Z&REG_LEN0     ), 
         (SCSI_RD        ,Z&REG_CONTROL  ), 
-        (LAB            ,to_unsigned(355,10)), 
+        (LAB            ,to_unsigned(403,10)), 
         (GOTO           ,Z&x"00"        ), 
         (NOP            ,Z&x"00"        ), 
         (SET_MODE       ,Z&"00000"&SCSI_STATUS), 
@@ -524,7 +576,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (NOP            ,Z&x"00"        ), 
         (NOP            ,Z&x"00"        ), 
         (SET_MODE       ,Z&"00000"&SCSI_MSG_IN), 
-        (LAB            ,to_unsigned(367,10)), 
+        (LAB            ,to_unsigned(415,10)), 
         (LDA_I          ,Z&x"00"        ), 
         (SCSI_WR_A      ,Z&REG_ACC      ), 
         (TEST_BSY       ,Z&x"01"        ), 
@@ -552,7 +604,7 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
         (LAB            ,to_unsigned(6,10)), 
         (LDA_I          ,Z&STAT_CHECK   ), 
         (SCSI_WR_A      ,Z&REG_ACC      ), 
-        (LAB            ,to_unsigned(362,10)), 
+        (LAB            ,to_unsigned(410,10)), 
         (GOTO           ,Z&x"00"        )); 
 
 -- FIN Insertion Microcode
@@ -561,6 +613,52 @@ ARCHITECTURE rtl OF scsi_mist_cdrom IS
   
 BEGIN
 
+  -- RH : 12 00 25 00 12 : INQUIRY TEST_UNIT_READY READ_CAPACITY TEST_UNIT_READY INQUIRY
+
+  -- Solaris 8 : 12 00 25 12 12 5A 5A 5A 12 5E
+
+  -- NextSTEP : 12 00 25 00 12 1B 00 25     28 28 28 28 ....
+  
+  -- 00 = TEST UNIT READY
+  -- 12 = INQUIRY
+  -- 1B = OP START STOP UNIT
+  -- 25 = READ CAPACITY
+  -- 5A = MODE SENSE 10
+  -- 5E = PERSISTANT RESERVE IN
+
+
+  -- 12 00 00 c0 30 00
+  --   => 05 80 02 00 1f 00 00 10
+  --   5a 41 43 55 53 20 20 20
+  --   43 44 52 4f 4d 20 20 20
+  --   20 20 4d 49 53 54 45 52
+  --   30 2e 31 30 00 00
+
+
+  --  5A 00 2A c0 00 00 00 00 20 00
+  --   => 00 01 80 08
+  --      01 02 a3 9f
+  --      00 00 08 00
+
+  --   5a 00 2a c0 00 00 00 00 20 00
+  --   => 00 01 80 08
+  --      01 02 a3 9f
+  --      00 00 08 00
+    
+  --   5a 00 2a c0 00 00 00 00 20 00
+  --   => 00 01 80 08
+  --      01 02 a3 9f
+  --      00 00 08 00
+
+  --   12 01 80 c0 14 00 /
+
+
+
+  --   5e 00 00 c0 00 00 00 00 08 00 /
+
+    
+
+  
   --------------------------------------------------------
   
 
@@ -573,7 +671,22 @@ BEGIN
   
 
 
+
   
+    
+
+
+  -- %           LDA_I     Z&x"00"           -- reserved
+  -- %           SCSI_WR   Z&REG_ACC -- 16 : 
+  -- %           LDA_I     Z&x"00"           -- reserved
+  -- %           SCSI_WR   Z&REG_ACC -- 17 : 
+  -- %           LDA_I     Z&x"00"           -- reserved
+  -- %           SCSI_WR   Z&REG_ACC -- 18 : 
+  -- %           LDA_I     Z&x"00"           -- reserved
+  -- %           SCSI_WR   Z&REG_ACC -- 19 :
+
+    
+    
   
 
       
@@ -590,7 +703,6 @@ BEGIN
 --   OP_ALLOW_MEDIUM_REMOVAL boot,cdrom
 --   OP_SEND_DIAGNOSTIC      obli
 --   OP_START_STOP_UNIT      
---   OP_MODE_SENSE_10        
 --   OP_RESERVE              obli,obsol
 --   OP_RELEASE              obli,obsol
 --   OP_VERIFY               
@@ -629,7 +741,7 @@ BEGIN
       scsi_r_i.d_pc<=to_unsigned(pc,10);
 
       -- READ CAPACITY returns the address of the last block, not the size.
-      IF ssize='1' THEN
+      IF ssize='0' THEN
         capacity_m<=unsigned("00" & hd_size(40 DOWNTO 11)) -1; -- Last sector
       ELSE
         capacity_m<=unsigned(hd_size(40 DOWNTO 9)) -1; -- Last sector number
@@ -646,10 +758,18 @@ BEGIN
           acc<=val8_v;
           
         WHEN LDA_SECTOR =>
-          IF ssize='0' THEN
+          IF ssize='1' THEN
             acc<=x"02"; -- 512 bytes 
           ELSE
             acc<=x"08"; -- 2048 bytes
+          END IF;
+
+        WHEN LDA_DBD =>
+          -- DBD = Disable Block Descriptor
+          IF r_adrs(19)='1' THEN
+            acc<=x"00";
+          ELSE
+            acc<=x"08";
           END IF;
           
         WHEN LDCPT =>
@@ -785,12 +905,17 @@ BEGIN
           
         ----------------------------------
         WHEN TEST_ADRS =>
-          IF ssize='1' THEN
+          IF ssize='0' THEN
+            -- 2048 bytes /sector mode
             r_adrs<=r_adrs(29 DOWNTO 0) & "00";
             r_len<=r_len(15 DOWNTO 0) & "00";
           END IF;
           saut_v:=(r_adrs>=capacity_m);
-                   
+
+        WHEN TEST_PC =>
+          -- Mode Sense Page Code
+          saut_v:=(r_adrs(13 DOWNTO 8)=val8_v(5 DOWNTO 0)) XOR (val_v(8)='1');
+          
         WHEN TEST_BSY =>
           saut_v:=(scsi_w.bsy=val8_v(0));
           
@@ -811,6 +936,9 @@ BEGIN
 
         WHEN TEST_EQH =>
           saut_v:=(acc(7 DOWNTO 5)=val8_v(7 DOWNTO 5));
+          
+        WHEN TEST_DBD =>
+          saut_v:=(r_adrs(19)='1');
           
         WHEN GOTO   =>
           saut_v:=true;

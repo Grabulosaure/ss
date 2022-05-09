@@ -136,6 +136,7 @@ ARCHITECTURE multi OF mcu_mp IS
   
   -- Empilage des données à renvoyer.
   SIGNAL dreg : uv32;
+  SIGNAL mmu_l2tlbena : std_logic;
   
   ------------------------------------------------------------------------------
   -- DATA
@@ -2179,7 +2180,7 @@ BEGIN
           mmu_cr_nf    <=data2_w.d(1);
           mmu_cr_wb    <=data2_w.d(4);
           mmu_cr_aw    <=data2_w.d(5);
-          mmu_cr_l2tlb <=data2_w.d(6) AND to_std_logic(L2TLB) AND l2tlbena;
+          mmu_cr_l2tlb <=data2_w.d(6) AND to_std_logic(L2TLB);
           mmu_cr_dce   <=data2_w.d(8) AND cachena;
           mmu_cr_ice   <=data2_w.d(9) AND cachena;
           mmu_cr_bm    <=data2_w.d(14) AND to_std_logic(BOOTMODE);
@@ -2192,7 +2193,7 @@ BEGIN
           mmu_cr_nf    <=data2_w.d(1);
           mmu_cr_wb    <=data2_w.d(4);
           mmu_cr_aw    <=data2_w.d(5);
-          mmu_cr_l2tlb <=data2_w.d(6) AND to_std_logic(L2TLB) AND l2tlbena;
+          mmu_cr_l2tlb <=data2_w.d(6) AND to_std_logic(L2TLB);
           mmu_cr_dce   <=data2_w.d(8) AND cachena;
           mmu_cr_ice   <=data2_w.d(9) AND cachena;
           mmu_cr_bm    <=data2_w.d(13) AND to_std_logic(BOOTMODE);
@@ -2313,7 +2314,7 @@ BEGIN
       ext_dreq_tw    => ext_dreq_tw,
       ext_dr         => ext_dr,
       mmu_cr_nf      => mmu_cr_nf,
-      mmu_cr_l2tlb   => mmu_cr_l2tlb,
+      mmu_cr_l2tlb   => mmu_l2tlbena,
       mmu_cr_wb      => mmu_cr_wb,
       mmu_cr_aw      => mmu_cr_aw,
       mmu_ctxtpr     => mmu_ctxtpr,
@@ -2326,6 +2327,8 @@ BEGIN
       mmu_tw_di      => mmu_tw_di,
       reset_na       => reset_na,
       clk            => clk);
+
+  mmu_l2tlbena <= mmu_cr_l2tlb AND l2tlbena;
   
   --###############################################################
   

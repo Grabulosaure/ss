@@ -22,7 +22,7 @@ set_global_assignment -name VHDL_FILE ../../../peri/ps2.vhd
 set_global_assignment -name VHDL_FILE ../../../peri/synth.vhd
 set_global_assignment -name VHDL_FILE ../../../peri/vid.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/scsi_mist_cdrom.vhd
-set_global_assignment -name VHDL_FILE ../../../ts/ts_lance_mac_void.vhd
+set_global_assignment -name VHDL_FILE ../../../ts/ts_lance_mac_rmii_norxen.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/dl_scsi.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/iram_rtc.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/iram_ts.vhd

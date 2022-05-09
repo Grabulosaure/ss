@@ -133,6 +133,7 @@ ARCHITECTURE simple OF mcu IS
   END RECORD;
   
   SIGNAL dreg : uv32;
+  SIGNAL mmu_l2tlbena : std_logic;
   
   ------------------------------------------------------------------------------
   -- Opération requise vers le contrôleur de bus externe :
@@ -2089,7 +2090,7 @@ BEGIN
       IF mmu_cr_maj='1' THEN
         mmu_cr_e  <=data2_w.d(0) AND NOT to_std_logic(MMU_DIS);
         mmu_cr_nf <=data2_w.d(1);
-        mmu_cr_l2tlb<=data2_w.d(6) AND to_std_logic(L2TLB) AND l2tlbena;
+        mmu_cr_l2tlb<=data2_w.d(6) AND to_std_logic(L2TLB);
         mmu_cr_dce<=data2_w.d(8) AND cachena;
         mmu_cr_ice<=data2_w.d(9) AND cachena;
         mmu_cr_bm <=data2_w.d(14) AND to_std_logic(BOOTMODE);
@@ -2204,7 +2205,7 @@ BEGIN
       ext_dreq_tw    => ext_dreq_tw,
       ext_dr         => ext_dr,
       mmu_cr_nf      => mmu_cr_nf,
-      mmu_cr_l2tlb   => mmu_cr_l2tlb,
+      mmu_cr_l2tlb   => mmu_l2tlbena,
       mmu_cr_wb      => '0',
       mmu_cr_aw      => '0',
       mmu_ctxtpr     => mmu_ctxtpr,
@@ -2217,6 +2218,8 @@ BEGIN
       mmu_tw_di      => mmu_tw_di,
       reset_na       => reset_na,
       clk            => clk);
+  
+  mmu_l2tlbena <= mmu_cr_l2tlb AND l2tlbena;
   
   --###############################################################
   -- Mémorisation accès I/D
