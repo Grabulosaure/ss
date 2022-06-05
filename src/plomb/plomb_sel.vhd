@@ -41,7 +41,7 @@ ENTITY plomb_sel IS
         
     -- Global
     clk      : IN  std_logic;
-    reset_na : IN  std_logic
+    reset_n  : IN  std_logic
     );
 END ENTITY plomb_sel;
 
@@ -56,14 +56,11 @@ BEGIN
   
   -------------------------------------------------------------
   -- Mémorise l'accès en cours, empile
-  Sync: PROCESS (clk,reset_na) IS
+  Sync: PROCESS (clk) IS
     VARIABLE reqret_v : std_logic;
     VARIABLE dreq_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      fifo<=(OTHERS => 0);
-      level<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       reqret_v:=i_w.mode(1) AND i_w.req;  -- Accès avec retour
       dreq_v:=vo_r(fifo(0)).dreq;
       
@@ -86,6 +83,10 @@ BEGIN
         level<=level-1;
       END IF;
 
+      IF reset_n='0' THEN
+        fifo<=(OTHERS => 0);
+        level<=0;
+      END IF;
     END IF;
   END PROCESS Sync;
 

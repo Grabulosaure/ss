@@ -43,7 +43,7 @@ ENTITY dl_scsi IS
     
     -- Global
     clk      : IN  std_logic;
-    reset_na : IN  std_logic
+    reset_n  : IN  std_logic
     );
 END ENTITY dl_scsi;
 
@@ -59,21 +59,6 @@ ARCHITECTURE rtl OF dl_scsi IS
   CONSTANT RD_PTR   : uv4 :=x"1";
   CONSTANT RD_DATA0 : uv4 :=x"2";
   CONSTANT RD_DATA1 : uv4 :=x"3";
-  
-  COMPONENT iram_dp IS
-    GENERIC (
-      N   : uint8;
-      OCT : boolean);
-    PORT (
-      mem1_w    : IN  type_pvc_w;
-      mem1_r    : OUT type_pvc_r;
-      clk1      : IN  std_logic;
-      reset1_na : IN  std_logic;
-      mem2_w    : IN  type_pvc_w;
-      mem2_r    : OUT type_pvc_r;
-      clk2      : IN  std_logic;
-      reset2_na : IN  std_logic);
-  END COMPONENT iram_dp;
   
   SIGNAL a0_w,a1_w,b0_w,b1_w   : type_pvc_w;
   SIGNAL a0_r,a1_r,b0_r,b1_r   : type_pvc_r;
@@ -91,29 +76,27 @@ ARCHITECTURE rtl OF dl_scsi IS
 BEGIN
 
   -- Bloc
-  i_iram_b0: iram_dp
+  i_iram_b0: ENTITY work.iram_dp
     GENERIC MAP (N => N+2,OCT => false)
     PORT MAP (
       mem1_w   => a0_w,     mem1_r    => a0_r,
-      clk1     => clk,      reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b0_w,     mem2_r    => b0_r,
-      clk2     => clk,      reset2_na => reset_na);
+      clk2     => clk);
 
-  i_iram_b1: iram_dp
+  i_iram_b1: ENTITY work.iram_dp
     GENERIC MAP (N => N+2,OCT => false)
     PORT MAP (
       mem1_w   => a1_w,     mem1_r    => a1_r,
-      clk1     => clk,      reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b1_w,     mem2_r    => b1_r,
-      clk2     => clk,      reset2_na => reset_na);
+      clk2     => clk);
   
   --------------------------------------
-  Reg:PROCESS(clk,reset_na)
+  Reg:PROCESS(clk)
     VARIABLE ack_v,req_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       
       --------------------------------------------------------------------
       IF conf_ackreq="00" THEN
@@ -195,12 +178,10 @@ BEGIN
   END PROCESS Reg;
   
   --------------------------------------
-  Glo:PROCESS(clk,reset_na) IS
+  Glo:PROCESS(clk) IS
     VARIABLE wrmem_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       clr_cptin<='0';
       dl_r.rd<='0';
       dl_r.d <=x"0000_0000";

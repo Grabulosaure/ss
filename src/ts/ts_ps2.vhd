@@ -37,7 +37,7 @@ ENTITY ts_ps2 IS
     dwdy        : OUT std_logic;
     
     clk         : IN  std_logic;
-    reset_na    : IN  std_logic
+    reset_n     : IN  std_logic
     );
 END ENTITY ts_ps2;
 
@@ -45,25 +45,6 @@ END ENTITY ts_ps2;
 
 ARCHITECTURE rtl OF ts_ps2 IS
 
-  COMPONENT ps2 IS
-    GENERIC (
-      SYSFREQ : natural);
-    PORT (
-      di       : IN  std_logic;
-      do       : OUT std_logic;
-      cki      : IN  std_logic;
-      cko      : OUT std_logic;
-      tx_data  : IN  uv8;
-      tx_req   : IN  std_logic;
-      tx_ack   : OUT std_logic;
-      rx_data  : OUT uv8;
-      rx_err   : OUT std_logic;
-      rx_val   : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT ps2;
-  
---------------------------------------------------------------------------------
   SIGNAL ps2_di,ps2_do,ps2_cki,ps2_cko : std_logic;
 
   SIGNAL tx_data,rx_data : uv8;
@@ -81,7 +62,7 @@ ARCHITECTURE rtl OF ts_ps2 IS
   --  3 :  3.125
 BEGIN
 
-  i_ps2: ps2
+  i_ps2: ENTITY work.ps2
     GENERIC MAP (
       SYSFREQ => SYSFREQ)
     PORT MAP (
@@ -96,7 +77,7 @@ BEGIN
       rx_err   => rx_err,
       rx_val   => rx_val,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -----------------------------------------------
   -- GPIO(0) : DATA
@@ -114,12 +95,9 @@ BEGIN
   gpio_o(3)<=NOT ps2_cko;
   
   -----------------------------------------------
-  Truc: PROCESS (clk,reset_na)
+  Truc: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      vv<='0';
-      lev<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ------------------------------------------
       -- Réception
       IF rx_val='1' THEN
@@ -148,7 +126,13 @@ BEGIN
       IF tx_ack='1' THEN
         tx_req<='0';
       END IF;
+      
       ------------------------------------------
+      IF reset_n='0' THEN
+        vv<='0';
+        lev<=0;
+      END IF;
+
     END IF;
   END PROCESS Truc;
 

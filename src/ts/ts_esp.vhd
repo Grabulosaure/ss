@@ -70,7 +70,7 @@ ENTITY ts_esp IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_esp;
 
@@ -155,7 +155,7 @@ BEGIN
 
   rsel<=w.req AND sel;
   
-  Sync: PROCESS (clk,reset_na)
+  Sync: PROCESS (clk)
     VARIABLE vcmd : uv8;
     VARIABLE fifo_push_v,fifo_pop_v : std_logic;
     VARIABLE fifo_reg_push_v,fifo_reg_pop_v : std_logic;
@@ -163,13 +163,7 @@ BEGIN
     VARIABLE fifo_dw_v : uv8;
     VARIABLE cmd_v : uv8;
   BEGIN
-    IF reset_na='0' THEN
-      fifo_lev<=0;
-      fifo_vv<='0';
-      scsi_atn<='0';
-      scsi_bsy<='0';
-      cmd<=CMD_NOP;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -------------------------------------------------------
       --  0 : Current Transfer LSB   | Transfer Count LSB
       IF rsel='1' AND w.a(6 DOWNTO 2)="00000" THEN
@@ -644,6 +638,14 @@ BEGIN
       END IF;
       
       int<=inter AND dma_esp_iena;
+
+      IF reset_n='0' THEN
+        fifo_lev<=0;
+        fifo_vv<='0';
+        scsi_atn<='0';
+        scsi_bsy<='0';
+        cmd<=CMD_NOP;
+      END IF;
     END IF;
   END PROCESS Sync;
   
@@ -720,14 +722,9 @@ BEGIN
   pw.req<=pw_i_req;
   pw.dack<='1';
 
-  Sync_DMA:PROCESS(clk,reset_na)
+  Sync_DMA:PROCESS(clk)
   BEGIN
-    IF reset_na='0' THEN
-      dma_wfr<='0';
-      dma_rrdy<='0';
-      pw_i_req<='0';
-      dma_wrdy<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       scsi_reqack<=scsi_w_i.ack AND scsi_r.req;
       
       -- Bus lectures
@@ -814,6 +811,13 @@ BEGIN
       
       dma_fin_pre<=dma_fin;
       
+      IF reset_n='0' THEN
+        dma_wfr<='0';
+        dma_rrdy<='0';
+        pw_i_req<='0';
+        dma_wrdy<='0';
+      END IF;
+
     END IF;
   END PROCESS Sync_DMA;
 

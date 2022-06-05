@@ -224,7 +224,7 @@ localparam CONF_STR = {
     "OB,Video,Internal,Scaler framebuffer;" ,
     "OCD,Keyboard,US,FR,DE,ES;" ,
     "-;" ,
-    "TV,RESET;" ,
+    "R0,RESET;" ,
     "-;" ,
     "OG,Cachena,ON,OFF;" ,
     "OH,L2TLB,OFF,ON;" ,
@@ -324,8 +324,8 @@ assign VIDEO_ARY = (!ar) ? 12'd3 : 12'd0;
 wire autoboot  = ~status[8];
 wire viboot    = ~status[9];
 wire tcx       = ~status[10];
-assign FB_EN = 0;
-wire vga_dis   = 0;
+assign FB_EN = status[11];
+wire vga_on  = 1;
 
 /* PS2 to Sun keyboard layout
   "Layouts for Type 4, 5, and 5c Keyboards"
@@ -357,7 +357,10 @@ wire sd_cd;
 
 wire [1:0] rmii_txd,rmii_rxd;
 wire rmii_txen,rmii_clk;
+   
+wire reset = RESET | status[0];
 
+   
 ss_core 
 #(
 `ifndef SS20
@@ -378,8 +381,7 @@ ss_core
 (
  .clk_50m(CLK_50M),
  .clk_sys(clk_sys),
- .reset(RESET),
- .resets(status[31]),
+ .reset(reset),
  .vga_r(VGA_R),
  .vga_g(VGA_G),
  .vga_b(VGA_B),
@@ -430,7 +432,7 @@ ss_core
  .cachena(cachena),
  .l2tlbena(l2tlbena),
  
- .vga_dis(vga_dis),
+ .vga_on(vga_on),
  .scsi_conf(scsi_conf),
  .scsi_cdconf(scsi_cdconf),
  .tcx(tcx),

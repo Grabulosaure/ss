@@ -33,8 +33,7 @@ ARCHITECTURE srec OF iram_bi IS
     PORT (
       mem_w    : IN  type_pvc_w;
       mem_r    : OUT type_pvc_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
+      clk      : IN  std_logic);
   END COMPONENT iram;
   
 --------------------------------------------------------------------------------
@@ -49,8 +48,7 @@ BEGIN
    PORT MAP (
      mem_w    => mem1_w,
      mem_r    => mem1_r,
-     clk      => clk,
-     reset_na => reset_na);
+     clk      => clk);
     
   iram2:iram
     GENERIC MAP (
@@ -61,7 +59,6 @@ BEGIN
    PORT MAP (
      mem_w => mem2_w,
      mem_r => mem2_r,
-     clk      => clk,
-     reset_na => reset_na);
+     clk      => clk);
   
 END ARCHITECTURE srec;

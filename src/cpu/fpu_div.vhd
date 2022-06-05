@@ -51,7 +51,7 @@ ENTITY  fpu_div IS
     div_fs_man  : OUT unsigned(54 DOWNTO 0);
     div_inx     : OUT std_logic;
     
-    reset_na    : IN std_logic;            -- Reset asynchrone
+    reset_n     : IN std_logic;            -- Reset asynchrone
     clk         : IN std_logic             -- Horloge
     );
 END ENTITY fpu_div;
@@ -234,12 +234,10 @@ BEGIN
 
     div_busy<=div_bsy;
     
-    Algo_DIV_NR:PROCESS (clk,reset_na)
+    Algo_DIV_NR:PROCESS (clk)
       VARIABLE r_v : unsigned(57 DOWNTO 0);
     BEGIN
-      IF reset_na='0' THEN
-        div_bsy<='0';
-      ELSIF rising_edge(clk) THEN
+      IF rising_edge(clk) THEN
         IF div_start='1' THEN
           dnr_i<=0;
           div_bsy<='1';
@@ -295,6 +293,9 @@ BEGIN
         IF div_flush='1' THEN
           div_bsy<='0';
         END IF;
+        IF reset_n='0' THEN
+          div_bsy<='0';
+        END IF;
       END IF;
     END PROCESS Algo_DIV_NR;
     
@@ -309,7 +310,7 @@ BEGIN
 
     div_busy<=div_bsy;
     
-    Algo_DIV_SRT2:PROCESS (clk,reset_na)
+    Algo_DIV_SRT2:PROCESS (clk)
       VARIABLE r_c_v,r_d_v     : unsigned(60 DOWNTO 0);
       VARIABLE add1_v,add2_v   : unsigned(60 DOWNTO 0);
       VARIABLE add1c_v,add2c_v : std_logic;
@@ -318,9 +319,7 @@ BEGIN
       VARIABLE d_v : integer RANGE -1 TO 1;
       VARIABLE x_v : unsigned(60 DOWNTO 0);      
     BEGIN
-      IF reset_na='0' THEN
-        div_bsy<='0';
-      ELSIF rising_edge(clk) THEN
+      IF rising_edge(clk) THEN
         IF div_start='1' THEN
           -- Précalcul : R0=Y=dvd, X0=0, M0=1
           srt_r_d<="00" & div_fs1_man & "00000";             -- R=00d.vd
@@ -439,8 +438,11 @@ BEGIN
         IF div_flush='1' THEN
           div_bsy<='0';
         END IF;
+
+        IF reset_n='0' THEN
+          div_bsy<='0';
+        END IF;
       END IF;
-      
     END PROCESS Algo_DIV_SRT2;
   END GENERATE Gen_DIV_SRT2;
 
@@ -450,7 +452,7 @@ BEGIN
 
     div_busy<=div_bsy;
     
-    Algo_DIV_SRT4:PROCESS (clk,reset_na)
+    Algo_DIV_SRT4:PROCESS (clk)
       VARIABLE r_c_v,r_d_v     : unsigned(60 DOWNTO 0);
       VARIABLE add1_v,add2_v   : unsigned(60 DOWNTO 0);
       VARIABLE add1c_v,add2c_v : std_logic;
@@ -460,9 +462,7 @@ BEGIN
       VARIABLE d_v : integer RANGE -2 TO 2;
       VARIABLE x_v : unsigned(60 DOWNTO 0);
     BEGIN
-      IF reset_na='0' THEN
-        div_bsy<='0';
-      ELSIF rising_edge(clk) THEN
+      IF rising_edge(clk) THEN
         IF div_start='1' THEN
           -- Précalcul : R0=Y=dvd, X0=0, M0=1
           srt_r_d<="000" & div_fs1_man & "0000";             -- R=000.dvd
@@ -642,6 +642,10 @@ BEGIN
           END IF;
         END IF;
         IF div_flush='1' THEN
+          div_bsy<='0';
+        END IF;
+
+        IF reset_n='0' THEN
           div_bsy<='0';
         END IF;
       END IF;

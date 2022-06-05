@@ -146,7 +146,7 @@ ENTITY dl_plomb_trace IS
     
     -- Global
     clk      : IN  std_logic;
-    reset_na : IN  std_logic
+    reset_n  : IN  std_logic
     );
 END ENTITY dl_plomb_trace;
 
@@ -175,21 +175,6 @@ ARCHITECTURE rtl OF dl_plomb_trace IS
   SIGNAL trig_addr,trig_amask : uv32;
   SIGNAL trig_sdat,trig_smask : uv8;
   SIGNAL cptmask : uint2;
-  
-  COMPONENT iram_dp IS
-    GENERIC (
-      N   : uint8;
-      OCT : boolean);
-    PORT (
-      mem1_w    : IN  type_pvc_w;
-      mem1_r    : OUT type_pvc_r;
-      clk1      : IN  std_logic;
-      reset1_na : IN  std_logic;
-      mem2_w    : IN  type_pvc_w;
-      mem2_r    : OUT type_pvc_r;
-      clk2      : IN  std_logic;
-      reset2_na : IN  std_logic);
-  END COMPONENT iram_dp;
   
   SIGNAL a1_w,a2_w,a3_w,a4_w,a5_w,a6_w : type_pvc_w;
   SIGNAL a1_r,a2_r,a3_r,a4_r,a5_r,a6_r : type_pvc_r;
@@ -220,74 +205,65 @@ ARCHITECTURE rtl OF dl_plomb_trace IS
 BEGIN
 
   -- Blocs
-  i_iram_bi1: iram_dp
+  i_iram_bi1: ENTITY work.iram_dp
     GENERIC MAP (N => 11,OCT => false)
     PORT MAP (
       mem1_w   => a1_w,      mem1_r   => a1_r,
-      clk1     => clk,       reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b1_w,      mem2_r   => b1_r,
-      clk2     => clk,       reset2_na => reset_na);
+      clk2     => clk);
     
-  i_iram_bi2: iram_dp
+  i_iram_bi2: ENTITY work.iram_dp
     GENERIC MAP (N => 11,OCT => false)
     PORT MAP (
       mem1_w   => a2_w,      mem1_r   => a2_r,
-      clk1     => clk,       reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b2_w,      mem2_r   => b2_r,
-      clk2     => clk,       reset2_na => reset_na);
+      clk2     => clk);
     
-  i_iram_bi3: iram_dp
+  i_iram_bi3: ENTITY work.iram_dp
     GENERIC MAP (N => 11,OCT => false)
     PORT MAP (
       mem1_w   => a3_w,      mem1_r   => a3_r,
-      clk1     => clk,       reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b3_w,      mem2_r   => b3_r,
-      clk2     => clk,       reset2_na => reset_na);
+      clk2     => clk);
     
-  i_iram_bi4: iram_dp
+  i_iram_bi4: ENTITY work.iram_dp
     GENERIC MAP (N => 11,OCT => false)
     PORT MAP (
       mem1_w   => a4_w,      mem1_r   => a4_r,
-      clk1     => clk,       reset1_na => reset_na,
+      clk1     => clk,
       mem2_w   => b4_w,      mem2_r   => b4_r,
-      clk2     => clk,       reset2_na => reset_na);
+      clk2     => clk);
 
   GenSig0: IF SIGS>0 GENERATE
-    i_iram_bi5: iram_dp
+    i_iram_bi5: ENTITY work.iram_dp
       GENERIC MAP (N => 11,OCT => false)
       PORT MAP (
         mem1_w   => a5_w,      mem1_r   => a5_r,
-        clk1     => clk,       reset1_na => reset_na,
+        clk1     => clk,
         mem2_w   => b5_w,      mem2_r   => b5_r,
-        clk2     => clk,       reset2_na => reset_na);
+        clk2     => clk);
   END GENERATE GenSig0;
   
   GenSig1:IF SIGS>32 GENERATE
-    i_iram_bi6: iram_dp
+    i_iram_bi6: ENTITY work.iram_dp
       GENERIC MAP (N => 11,OCT => false)
       PORT MAP (
         mem1_w   => a6_w,      mem1_r   => a6_r,
-        clk1     => clk,       reset1_na => reset_na,
+        clk1     => clk,
         mem2_w   => b6_w,      mem2_r   => b6_r,
-        clk2     => clk,       reset2_na => reset_na);
+        clk2     => clk);
   END GENERATE GenSig1;
   
   --------------------------------------
-  Reg:PROCESS(clk,reset_na,astart)
+  Reg:PROCESS(clk)
     VARIABLE bw : type_pvc_w;
     VARIABLE push,pusho,pop : std_logic;
     VARIABLE trig_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      cpt<="000000000";
-      --ena<='0';
-      level<=0;
-      levv<='0';
-      trigx<='0';
-      trigx2<='0';
-      ena<=astart;
-               
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       rpw<=pw;
       rpr<=pr;
       IF brut='0' THEN
@@ -512,7 +488,17 @@ BEGIN
       ELSE
         state<="00";
       END IF;
+
       --------------------------------------------------------------------
+      IF reset_n='0' THEN
+        cpt<="000000000";
+        --ena<='0';
+        level<=0;
+        levv<='0';
+        trigx<='0';
+        trigx2<='0';
+        ena<=astart;
+      END IF;               
 
     END IF;
   END PROCESS Reg;
@@ -520,21 +506,10 @@ BEGIN
   trigo<=trigx;
   
   --------------------------------------
-  Glo:PROCESS(clk,reset_na,astart) IS
+  Glo:PROCESS(clk) IS
     VARIABLE wrmem_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      IF astart='1' THEN
-        --   ftrig2<='1';
-        ftrig2<='0';
-        start2<='1';
-        tmask<=x"60";
-      ELSE
-        ftrig2<='0';
-        start2<='0';
-      END IF;
-      brut<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       dl_r.d<=x"0000_0000";
       dl_r.rd<='0';
       incptrout<='0';
@@ -622,6 +597,20 @@ BEGIN
         ptrout<=(OTHERS =>'0');
       ELSIF incptrout='1' THEN
         ptrout<=ptrout+1;
+      END IF;
+
+      --------------------------------------------
+      IF reset_n='0' THEN
+        IF astart='1' THEN
+          --   ftrig2<='1';
+          ftrig2<='0';
+          start2<='1';
+          tmask<=x"60";
+        ELSE
+          ftrig2<='0';
+          start2<='0';
+        END IF;
+        brut<='0';
       END IF;
         
     END IF;

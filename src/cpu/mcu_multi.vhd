@@ -311,45 +311,7 @@ ARCHITECTURE multi OF mcu_mp IS
   SIGNAL xxx_dexmax : std_logic;
   
   --------------------------------------------------------
-  COMPONENT iram IS
-    GENERIC (
-      N    : uint8;
-      OCT  : boolean);
-    PORT (
-      mem_w    : IN  type_pvc_w;
-      mem_r    : OUT type_pvc_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT iram;
-
-  COMPONENT iram_dp IS
-    GENERIC (
-      N   : uint8;
-      OCT : boolean);
-    PORT (
-      mem1_w    : IN  type_pvc_w;
-      mem1_r    : OUT type_pvc_r;
-      clk1      : IN  std_logic;
-      reset1_na : IN  std_logic;
-      mem2_w    : IN  type_pvc_w;
-      mem2_r    : OUT type_pvc_r;
-      clk2      : IN  std_logic;
-      reset2_na : IN  std_logic);
-  END COMPONENT iram_dp;
-  
-  COMPONENT iram_bi IS
-    GENERIC (
-      N   : uint8;
-      OCT : boolean);
-    PORT (
-      mem1_w   : IN  type_pvc_w;
-      mem1_r   : OUT type_pvc_r;
-      mem2_w   : IN  type_pvc_w;
-      mem2_r   : OUT type_pvc_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT iram_bi;
-  
+ 
 BEGIN
   
   --###############################################################
@@ -371,18 +333,16 @@ BEGIN
     dcache_d2_w(i).dw <=dcache_d2_dw;
     dcache_d2_dr(i)<=dcache_d2_r(i).dr;
     
-    i_dcache: iram_dp
+    i_dcache: ENTITY work.iram_dp
       GENERIC MAP (
         N => NB_DCACHE, OCT=>true)
       PORT MAP (
         mem1_w    => dcache_d_w(i),
         mem1_r    => dcache_d_r(i),
         clk1      => clk,
-        reset1_na => reset_na,
         mem2_w    => dcache_d2_w(i),
         mem2_r    => dcache_d2_r(i),
-        clk2      => clk,
-        reset2_na => reset_na);
+        clk2      => clk);
         
   END GENERATE Gen_DCacheD;
   
@@ -403,18 +363,16 @@ BEGIN
     icache_d2_w(i).dw <=icache_d2_dw;
     icache_d2_dr(i)<=icache_d2_r(i).dr;
     
-    i_icache: iram_dp
+    i_icache: ENTITY work.iram_dp
       GENERIC MAP (
         N => NB_ICACHE, OCT=>true)
       PORT MAP (
         mem1_w    => icache_d_w(i),
         mem1_r    => icache_d_r(i),
         clk1      => clk,
-        reset1_na => reset_na,
         mem2_w    => icache_d2_w(i),
         mem2_r    => icache_d2_r(i),
-        clk2      => clk,
-        reset2_na => reset_na);
+        clk2      => clk);
 
   END GENERATE Gen_ICacheD;
 
@@ -466,34 +424,30 @@ BEGIN
   END GENERATE Gen_ICacheT2;
 
   Gem_DCacheT2: FOR i IN 0 TO WAY_DCACHE-1 GENERATE
-    i_dcachetag:iram_dp
+    i_dcachetag: ENTITY work.iram_dp
       GENERIC MAP (
         N => NB_DCACHE-NB_LINE, OCT=>false)
       PORT MAP (
         mem1_w    => dcache_t_w(i),
         mem1_r    => dcache_t_r(i),
         clk1      => clk,
-        reset1_na => reset_na,
         mem2_w    => dcache_t2_w(i),
         mem2_r    => dcache_t2_r(i),
-        clk2      => clk,
-        reset2_na => reset_na
+        clk2      => clk
         );
   END GENERATE Gem_DCacheT2;
 
   Gem_ICacheT2: FOR i IN 0 TO WAY_ICACHE-1 GENERATE
-    i_icachetag:iram_dp
+    i_icachetag: ENTITY work.iram_dp
       GENERIC MAP (
         N => NB_ICACHE-NB_LINE, OCT=>false)
       PORT MAP (
         mem1_w    => icache_t_w(i),
         mem1_r    => icache_t_r(i),
         clk1      => clk,
-        reset1_na => reset_na,
         mem2_w    => icache_t2_w(i),
         mem2_r    => icache_t2_r(i),
-        clk2      => clk,
-        reset2_na => reset_na
+        clk2      => clk
         );
   END GENERATE Gem_ICacheT2;
   
@@ -1241,22 +1195,12 @@ BEGIN
   
   -------------------------------------------------------------------------
   -- Process synchrone bus DATA
-  Sync_Data:PROCESS (clk, reset_na)
+  Sync_Data:PROCESS (clk)
     VARIABLE tlb_trouve : std_logic;
     VARIABLE no : natural RANGE 0 TO N_DTLB-1;
     VARIABLE hist_maj_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      dtlb_cpt<=0;
-      data_etat<=sOISIF;
-      data2_w.req<='0';
-      FOR I IN 0 TO N_DTLB-1 LOOP
-        dtlb(I).v<='0';
-      END LOOP;
-      data_jat<='0';
-      dtlb_twm<='0';
-      dtlb_hist<=x"00";
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
 
       IF (data_etat=sWAIT_SHARE) AND xxx_dexr<250 THEN
         xxx_dexr<=xxx_dexr+1;
@@ -1446,6 +1390,19 @@ BEGIN
       -------------------------------------------
       -- Machine à états
       data_etat<=data_etat_c;
+
+      -------------------------------------------
+      IF reset_n='0' THEN
+        dtlb_cpt<=0;
+        data_etat<=sOISIF;
+        data2_w.req<='0';
+        FOR I IN 0 TO N_DTLB-1 LOOP
+          dtlb(I).v<='0';
+        END LOOP;
+        data_jat<='0';
+        dtlb_twm<='0';
+        dtlb_hist<=x"00";
+      END IF;
     END IF;
   END PROCESS Sync_Data;
   
@@ -1979,23 +1936,12 @@ BEGIN
   
   -------------------------------------------------------------------------
   -- Process synchrone bus INST
-  Sync_Inst:PROCESS (clk, reset_na)
+  Sync_Inst:PROCESS (clk)
     VARIABLE tlb_trouve : std_logic;
     VARIABLE no : natural RANGE 0 TO N_ITLB-1;
     VARIABLE hist_maj_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      itlb_cpt<=0;
-      inst_etat<=sOISIF;
-      imux2_w.req<='0';
-      FOR I IN 0 TO N_ITLB-1 LOOP
-        itlb(I).v<='0';
-      END LOOP;
-      inst_jat<='0';
-      itlb_twm<='0';
-      cross<='0';
-      itlb_hist<=x"00";
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -------------------------------------------
       -- Accès en continu
       IF filldone='1' OR imux2_w.req='0' OR imux2_w.cont='0' OR
@@ -2121,6 +2067,20 @@ BEGIN
       -- Machine à états
       inst_etat<=inst_etat_c;
       cross<=cross_c;
+
+      -------------------------------------------
+      IF reset_n='0' THEN
+        itlb_cpt<=0;
+        inst_etat<=sOISIF;
+        imux2_w.req<='0';
+        FOR I IN 0 TO N_ITLB-1 LOOP
+          itlb(I).v<='0';
+        END LOOP;
+        inst_jat<='0';
+        itlb_twm<='0';
+        cross<='0';
+        itlb_hist<=x"00";
+      END IF;
     END IF;
   END PROCESS Sync_Inst;
 
@@ -2128,22 +2088,9 @@ BEGIN
 
   --###############################################################
   -- Gestion Registres MMU
-  Sync_Regs:PROCESS (clk, reset_na)
+  Sync_Regs:PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      mmu_cr_e<='0';
-      mmu_cr_nf<='0';
-      mmu_cr_dce<='0';
-      mmu_cr_ice<='0';
-      mmu_cr_l2tlb<='0';
-      --mmu_cr_wb<='0';
---      mmu_cr_aw<='0';
-      mmu_cr_bm<=to_std_logic(BOOTMODE);
-      mmu_fsr_ow<='0';
-      mmu_fsr_ft<=FT_NONE;
-      mmu_fsr_fav<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -------------------------------------------
 
 --        MicroSparc2                 SuperSparc                 TEMLIB
@@ -2282,6 +2229,20 @@ BEGIN
         END IF;
         
       END IF;
+
+      IF reset_n='0' THEN
+        mmu_cr_e<='0';
+        mmu_cr_nf<='0';
+        mmu_cr_dce<='0';
+        mmu_cr_ice<='0';
+        mmu_cr_l2tlb<='0';
+        --mmu_cr_wb<='0';
+  --      mmu_cr_aw<='0';
+        mmu_cr_bm<=to_std_logic(BOOTMODE);
+        mmu_fsr_ow<='0';
+        mmu_fsr_ft<=FT_NONE;
+        mmu_fsr_fav<='0';
+      END IF;
     END IF;
   END PROCESS Sync_Regs;
   
@@ -2325,7 +2286,7 @@ BEGIN
       mmu_tw_ft      => mmu_tw_ft,
       mmu_tw_st      => mmu_tw_st,
       mmu_tw_di      => mmu_tw_di,
-      reset_na       => reset_na,
+      reset_n        => reset_n,
       clk            => clk);
 
   mmu_l2tlbena <= mmu_cr_l2tlb AND l2tlbena;
@@ -2387,7 +2348,7 @@ BEGIN
       mmu_cr_isnoop  => mmu_cr_isnoop,
       mmu_cr_dsnoop  => mmu_cr_dsnoop,
       clk            => clk,
-      reset_na       => reset_na);
+      reset_n        => reset_n);
       
   --###############################################################
   last<=last_l;

@@ -35,7 +35,6 @@ ENTITY iram_bi IS
     -- Port 2
     mem2_w    : IN  type_pvc_w;
     mem2_r    : OUT type_pvc_r;
-    clk       : IN std_logic;
-    reset_na  : IN std_logic
+    clk       : IN std_logic
     );
 END ENTITY iram_bi;

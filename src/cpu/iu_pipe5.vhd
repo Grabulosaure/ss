@@ -80,43 +80,7 @@ ARCHITECTURE pipe5 OF iu IS
   CONSTANT MULDIV  : boolean := CPUCONF(CPUTYPE).MULDIV;
   CONSTANT FPU_VER : unsigned(2 DOWNTO 0) := CPUCONF(CPUTYPE).FPU_VER;
   
-  --------------------------------------
-  COMPONENT iu_regs_2r1w
-    GENERIC (
-      THRU : boolean;
-      NREGS : natural);
-    PORT (
-      n_rs1    : IN  natural RANGE 0 TO NREGS-1;
-      rs1      : OUT uv32;
-      n_rs2    : IN  natural RANGE 0 TO NREGS-1;
-      rs2      : OUT uv32;
-      n_rd     : IN  natural RANGE 0 TO NREGS-1;
-      rd       : IN  uv32;
-      rd_maj   : IN  std_logic;
-      reset_na : IN  std_logic;
-      clk      : IN  std_logic);
-  END COMPONENT;
 
-  COMPONENT iu_muldiv IS
-    GENERIC (
-      MULDIV   : boolean;
-      TECH     : natural);
-    PORT (
-      op       : IN  uv2;
-      req      : IN  std_logic;
-      ack      : OUT std_logic;
-      rs1      : IN  uv32;
-      rs2      : IN  uv32;
-      ry       : IN  uv32;
-      rd_o     : OUT uv32;
-      ry_o     : OUT uv32;
-      icc_o    : OUT type_icc;
-      dz_o     : OUT std_logic;
-      reset    : IN  std_logic;
-      reset_na : IN  std_logic;
-      clk      : IN  std_logic);
-  END COMPONENT;
-  
 --------------------------------------------------------------------------------
   TYPE type_pipe IS RECORD
     v        : std_logic;                -- Valide
@@ -361,7 +325,7 @@ ARCHITECTURE pipe5 OF iu IS
 BEGIN
   
   ------------------------------------------------------------------------------
-  iregs: iu_regs_2r1w
+  iregs: ENTITY work.iu_regs_2r1w
     GENERIC MAP (
       THRU => NOT BYPASS_WRI,
       NREGS => NWINDOWS*16+8)
@@ -373,13 +337,12 @@ BEGIN
       n_rd     => num_rd_c,
       rd       => rd_c,
       rd_maj   => rd_maj,
-      reset_na => reset_na,
       clk      => clk);
 
   n_rs1_c<=dec_n_rs1_c WHEN BYPASS_DEC ELSE pipe_dec_c.num_rs1;
   n_rs2_c<=dec_n_rs2_c WHEN BYPASS_DEC ELSE pipe_dec_c.num_rs2;
   
-  i_muldiv: iu_muldiv
+  i_muldiv: ENTITY work.iu_muldiv
     GENERIC MAP (
       MULDIV   => MULDIV,
       TECH     => TECH)
@@ -394,9 +357,8 @@ BEGIN
       ry_o     => muldiv_ry_o,
       icc_o    => muldiv_icc_o,
       dz_o     => muldiv_dz_o,
-      reset    => reset,
-      reset_na => reset_na,
       clk      => clk);
+      
   muldiv_op<=pipe_dec.cat.op(21) & pipe_dec.cat.op(19);
 
   fpu_i.cat   <=pipe_dec_c.cat;
@@ -419,15 +381,9 @@ BEGIN
   fpu_fccv    <=fpu_o.fccv;
   
   --------------------------------------
-  Sync_FETCH:PROCESS(clk,reset_na) IS
+  Sync_FETCH:PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      inst_w_i.req<='0';
-      inst_w_i.dack<='1';
-      inst_lev<=0;
-      inst_aec<=0;
-      inst_r_lev<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF trap_stop='1' AND dstop='0' THEN
         pc<=npc_c;
         npc<=npc_c OR x"00000004";
@@ -525,6 +481,14 @@ BEGIN
         
       ASSERT inst_r.dreq='0' OR inst_r_lev/=2 OR as_dec_c='1'
         REPORT "ECRASEMENT" SEVERITY error;
+
+      IF reset_n='0' THEN
+        inst_w_i.req<='0';
+        inst_w_i.dack<='1';
+        inst_lev<=0;
+        inst_aec<=0;
+        inst_r_lev<=0;
+      END IF;  
     END IF;
 
   END PROCESS Sync_FETCH;
@@ -804,14 +768,11 @@ BEGIN
   --pragma synthesis_on
   
   --------------------------------------
-  Sync_DECODE:PROCESS(clk,reset_na) IS
+  Sync_DECODE:PROCESS(clk,reset_n) IS
     VARIABLE lout : line;
     VARIABLE c : string(1 TO 3);
   BEGIN
-    IF reset_na='0' THEN
-      pipe_dec.v<='0';
-      udstop<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       --pragma synthesis_off
       IF DUMP THEN
         IF pipe_dec_c.anu='0' THEN
@@ -843,6 +804,12 @@ BEGIN
       ELSIF dstop='1' OR debug_t.run='1' THEN
         udstop<='0';
       END IF;
+
+      IF reset_n='0' THEN
+        pipe_dec.v<='0';
+        udstop<='0';
+      END IF;
+
     END IF;
   END PROCESS Sync_DECODE;
 
@@ -1095,14 +1062,9 @@ BEGIN
   END PROCESS Comb_EXEC;
 
   --------------------------------------
-  Sync_EXEC:PROCESS(clk,reset_na) IS
+  Sync_EXEC:PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      pipe_exe.v<='0';
-      psr.et<='0';
-      psr.s<='1';
-      psr.cwp<="00000";                 -- AJOUT !!!
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       psr<=psr_c;
       ry <=ry_c;
       pipe_exe<=pipe_exe_c;
@@ -1114,6 +1076,13 @@ BEGIN
         muldiv_ack_mem<='0';
       ELSIF muldiv_ack='1' THEN
         muldiv_ack_mem<='1';
+      END IF;
+
+      IF reset_n='0' THEN
+        pipe_exe.v<='0';
+        psr.et<='0';
+        psr.s<='1';
+        psr.cwp<="00000";                 -- AJOUT !!!
       END IF;
     END IF;
   END PROCESS Sync_EXEC;
@@ -1202,14 +1171,9 @@ BEGIN
   data_w<=data_w_c;
   
   --------------------------------------
-  Sync_MEM:PROCESS(clk,reset_na) IS
+  Sync_MEM:PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      data_aec<=0;
-      data_wu_req<='0';
-      pipe_mem.v<='0';
-      endlock<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       pipe_mem<=pipe_mem_c;
       endlock<=endlock_c;
       IF as_wri_c='1' AND pipe_mem.v='1' AND trap_stop='0'
@@ -1225,6 +1189,13 @@ BEGIN
       ELSIF NOT (data_w_c.req='1' AND data_r.ack='1') AND data_r.dreq='1' THEN
         -- data_w.dack est toujours à 1
         data_aec<=0;
+      END IF;
+
+      IF reset_n='0' THEN
+        data_aec<=0;
+        data_wu_req<='0';
+        pipe_mem.v<='0';
+        endlock<='0';
       END IF;
     END IF;
   END PROCESS Sync_MEM;
@@ -1343,16 +1314,10 @@ BEGIN
   fpu_di<=data_r.d;
   
   --------------------------------------
-  Sync_WRITE:PROCESS(clk,reset_na) IS
+  Sync_WRITE:PROCESS(clk) IS
     VARIABLE lout : line;
   BEGIN
-    IF reset_na='0' THEN
-      trap_stop<='1';
-      halterror<='0';
-      dstop<='0';
-      pipe_wri.v<='0';
-      psr_fin<=PSR_0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       pipe_wri<=pipe_mem;
       pipe_wri.v<=pipe_wri_v_c;
       pipe_wri.rd<=rd_c;
@@ -1417,6 +1382,13 @@ BEGIN
       IF reset='1' THEN
         tbr.tba<=(OTHERS => '0');
         tbr.tt <=(OTHERS => '0');
+      END IF;
+      IF reset_n='0' THEN
+        trap_stop<='1';
+        halterror<='0';
+        dstop<='0';
+        pipe_wri.v<='0';
+        psr_fin<=PSR_0;
       END IF;
     END IF;
   END PROCESS Sync_WRITE;

@@ -76,7 +76,7 @@ ENTITY ts_iommu IS
     mask_rev : IN uv8;
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_iommu;
 
@@ -122,22 +122,6 @@ ARCHITECTURE rtl OF ts_iommu IS
   
   TYPE enum_etat IS (sTRANS,sPRE,sPURGE,sTLBA,sTLBD,sPOST);
   SIGNAL etat_c,etat : enum_etat;
-  
-  --------------------------------------
-  COMPONENT plomb_fifo IS
-    GENERIC (
-      PROF_W : positive;
-      PROF_R : positive;
-      MODE_W : enum_plomb_fifo;
-      MODE_R : enum_plomb_fifo);
-    PORT (
-      i_w      : IN  type_plomb_w;
-      i_r      : OUT type_plomb_r;
-      o_w      : OUT type_plomb_w;
-      o_r      : IN  type_plomb_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT plomb_fifo;
   
   --------------------------------------
   -- Calcul adresses PTE
@@ -193,16 +177,9 @@ BEGIN
   rsel<=w.req AND sel;  
   
   -- Accès registres
-  Sync_Regs: PROCESS (clk,reset_na)    
+  Sync_Regs: PROCESS (clk)    
   BEGIN
-    IF reset_na='0' THEN
-      me<='0';
-      de<='0';
-      rag<="000";
-      flush<='0';
-      iba<=(OTHERS => '0');
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       dr<=x"00000000"; -- Tous les autres registres.
       
       -- 0000 : IOMMU Control Register
@@ -249,6 +226,14 @@ BEGIN
         dr<=mask_rev & ZERO(23 DOWNTO 0);
       END IF;
       
+      IF reset_n='0' THEN
+        me<='0';
+        de<='0';
+        rag<="000";
+        flush<='0';
+        iba<=(OTHERS => '0');
+      END IF;      
+
     END IF;
   END PROCESS Sync_Regs;
 
@@ -339,19 +324,11 @@ BEGIN
   END PROCESS Comb_Pipo;
   
   ------------------------------------------------------------------------------
-  Sync_Pipo:PROCESS(clk,reset_na)
+  Sync_Pipo:PROCESS(clk)
     VARIABLE trouve : std_logic;
     VARIABLE push,pop : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      FOR I IN 0 TO N_IOTLB-1 LOOP
-        iotlb(I).v<='0';
-      END LOOP;
-      etat<=sTRANS;
-      ct<=0;
-      iotlb_cpt<=0;
-      flushpend<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       --------------------------------------
       -- Mise à jour du TLB
       IF iotlb_maj_c='1' THEN
@@ -395,7 +372,18 @@ BEGIN
       END IF;
       --------------------------------------
       etat<=etat_c;
-      
+
+      --------------------------------------
+      IF reset_n='0' THEN
+        FOR I IN 0 TO N_IOTLB-1 LOOP
+          iotlb(I).v<='0';
+        END LOOP;
+        etat<=sTRANS;
+        ct<=0;
+        iotlb_cpt<=0;
+        flushpend<='0';
+      END IF;
+
     END IF;
   END PROCESS Sync_Pipo;
   
@@ -415,18 +403,18 @@ BEGIN
   END PROCESS Combino;
 
   ------------------------------------------------------------------------------
-  i_plomb_fifo: plomb_fifo
+  i_plomb_fifo: ENTITY work.plomb_fifo
     GENERIC MAP (
       PROF_W => 2,
       PROF_R => 2,
       MODE_W => SYNC,
       MODE_R => DIRECT)
     PORT MAP (
-      i_w      => paw,
-      i_r      => par,
-      o_w      => pow,
-      o_r      => por,
-      clk      => clk,
-      reset_na => reset_na);
+      i_w     => paw,
+      i_r     => par,
+      o_w     => pow,
+      o_r     => por,
+      clk     => clk,
+      reset_n => reset_n);
   
 END ARCHITECTURE rtl;

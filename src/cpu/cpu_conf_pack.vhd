@@ -46,6 +46,7 @@ PACKAGE cpu_conf_pack IS
 
     L2TLB        : boolean;       -- true=Enable Level 2 TLB cache
     NB_L2TLB     : natural;       -- Number of L2TLB entries 2**NB_L2TLB
+    N_PTD_L2     : natural;       -- Number of cached Level 2 PTD entries I&D
     
     -- Sun4m : IOMMU
     IOMMU_VER    : uv8;           -- IOMMU IMPL/VER
@@ -86,6 +87,7 @@ PACKAGE cpu_conf_pack IS
     
     L2TLB       => true,
     NB_L2TLB    => 7,
+    N_PTD_L2    => 3,
     
     IOMMU_VER   => x"04"
     );
@@ -113,6 +115,7 @@ PACKAGE cpu_conf_pack IS
     
     L2TLB       => true,
     NB_L2TLB    => 7,
+    N_PTD_L2    => 3,
     
     IOMMU_VER   => x"04"
     );
@@ -140,6 +143,7 @@ PACKAGE cpu_conf_pack IS
     
     L2TLB       => true,
     NB_L2TLB    => 7,
+    N_PTD_L2    => 2,
     
     IOMMU_VER   => x"04"
     );

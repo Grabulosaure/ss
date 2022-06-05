@@ -30,13 +30,11 @@ ENTITY iram_dp IS
     mem1_w    : IN  type_pvc_w;
     mem1_r    : OUT type_pvc_r;
     clk1      : IN std_logic;
-    reset1_na : IN std_logic;
     
     -- Port 2
     mem2_w    : IN  type_pvc_w;
     mem2_r    : OUT type_pvc_r;
-    clk2      : IN std_logic;
-    reset2_na : IN std_logic
+    clk2      : IN std_logic
     );
 END ENTITY iram_dp;
 

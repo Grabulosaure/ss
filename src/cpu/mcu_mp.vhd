@@ -51,7 +51,7 @@ ENTITY mcu_mp IS
     wback    : IN std_logic;
     aow      : IN std_logic;
     reset    : IN std_logic;            -- Reset synchrone
-    reset_na : IN std_logic;            -- Reset asynchrone
+    reset_n  : IN std_logic;            -- Reset
     clk      : IN std_logic             -- Horloge
     );
 END ENTITY mcu_mp;

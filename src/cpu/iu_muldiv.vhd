@@ -70,8 +70,6 @@ ENTITY  iu_muldiv IS
     icc_o    : OUT type_icc;
     dz_o     : OUT std_logic;   -- Division par zéro
     
-    reset    : IN std_logic;    -- Reset synchrone   
-    reset_na : IN std_logic;    -- Reset asynchrone
     clk      : IN std_logic     -- Horloge
     );
 END ENTITY iu_muldiv;

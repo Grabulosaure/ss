@@ -157,7 +157,7 @@ ENTITY ts_dmaux IS
     
     -- Global
     clk         : IN  std_logic;
-    reset_na    : IN  std_logic
+    reset_n     : IN  std_logic
     );
 END ENTITY ts_dmaux;
 
@@ -187,22 +187,9 @@ ARCHITECTURE rtl OF ts_dmaux IS
 BEGIN
 
   -----------------------------------
-  Sync_Regs: PROCESS (clk,reset_na,reset_mask_rev)
+  Sync_Regs: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      dma_eth_reset_i<='0';
-      dma_eth_iena_i<='0';
-      led_i<='0';
-      c1_cl<='1';
-      c1_da<='1';
-      c2_cl<='1';
-      c2_da<='1';
-      c3_cl<='1';
-      c3_da<='1';
-      vgactrl<=x"0000";
-      mdc<='0';
-      mask_rev_i<=reset_mask_rev; --IOMMU_MASK_REV;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       dr<=x"00000000"; -- Tous les autres registres.
 
       -------------------------------------------------------------
@@ -336,6 +323,20 @@ BEGIN
       END IF;
       
       -------------------------------------------------------------
+      IF reset_n='0' THEN
+        dma_eth_reset_i<='0';
+        dma_eth_iena_i<='0';
+        led_i<='0';
+        c1_cl<='1';
+        c1_da<='1';
+        c2_cl<='1';
+        c2_da<='1';
+        c3_cl<='1';
+        c3_da<='1';
+        vgactrl<=x"0000";
+        mdc<='0';
+        mask_rev_i<=reset_mask_rev; --IOMMU_MASK_REV;
+      END IF;
     END IF;
   END PROCESS Sync_Regs;
 

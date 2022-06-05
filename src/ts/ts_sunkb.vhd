@@ -51,8 +51,8 @@ ENTITY ts_sunkb IS
     layout  : IN  uv8;
     
     -- Global
-    clk      : IN std_logic;
-    reset_na : IN std_logic
+    clk     : IN std_logic;
+    reset_n : IN std_logic
     );
 END ENTITY ts_sunkb;
 
@@ -74,11 +74,9 @@ ARCHITECTURE rtl OF ts_sunkb IS
   
 BEGIN
 
-  Machine: PROCESS (clk,reset_na)
+  Machine: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      etat<=sOISIF;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       kb_rdy<='0';
       si_req<='0';
       so_rdy<='1';
@@ -201,6 +199,11 @@ BEGIN
           
           --------------------------------------
       END CASE;
+      
+      IF reset_n='0' THEN
+        etat<=sOISIF;
+      END IF;
+
     END IF;
   END PROCESS Machine;
   

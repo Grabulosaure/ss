@@ -68,7 +68,7 @@ ENTITY ts_io IS
     vga_vpos    : OUT uint12;
     vga_clk     : IN  std_logic;
     vga_en      : IN  std_logic;
-    vga_dis     : IN  std_logic;
+    vga_on      : IN  std_logic;
     pal_clk     : OUT std_logic;
     pal_d       : OUT uv24;
     pal_a       : OUT uv8;
@@ -149,338 +149,13 @@ ENTITY ts_io IS
     stopa       : IN  std_logic;
     iboot       : IN  std_logic;        -- 1=Boot RAM interne, 0=Boot FLASH
     clk         : IN  std_logic;
-    reset_na    : IN  std_logic
+    reset_n     : IN  std_logic
     );
 END ENTITY ts_io;
 
 --##############################################################################
 
 ARCHITECTURE rtl OF ts_io IS
-  
---------------------------------------------------------------------------------
-  COMPONENT plomb_mux IS
-    GENERIC (
-      NB   : uint8;
-      PROF : uint8); 
-    PORT (
-      vi_w     : IN  arr_plomb_w(0 TO NB-1);
-      vi_r     : OUT arr_plomb_r(0 TO NB-1);
-      o_w      : OUT type_plomb_w;
-      o_r      : IN  type_plomb_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic); 
-  END COMPONENT;
-
-  COMPONENT ts_decode IS
-    GENERIC (
-      SS20 : boolean);
-    PORT (
-      a        : IN  unsigned(31 DOWNTO 0);
-      ah       : IN  unsigned(35 DOWNTO 32);
-      s        : OUT type_sel;
-      iboot    : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_dmaux IS
-    GENERIC (
-      HWCONF           : uv8;
-      ETHERNET         : boolean);
-    PORT (
-      sel_dma2         : IN  std_logic;
-      sel_auxio0       : IN  std_logic;
-      sel_auxio1       : IN  std_logic;
-      w                : IN  type_pvc_w;
-      r                : OUT type_pvc_r;
-      dma_esp_iena     : OUT std_logic;
-      dma_esp_int      : IN  std_logic;
-      dma_esp_reset    : OUT std_logic;
-      dma_esp_write    : OUT std_logic;
-      dma_esp_addr_w   : OUT uv32;
-      dma_esp_addr_r   : IN  uv32;
-      dma_esp_addr_maj : OUT std_logic;
-      dma_eth_int      : IN  std_logic;
-      dma_eth_iena     : OUT std_logic;
-      dma_eth_reset    : OUT std_logic;
-      dma_eth_ba       : OUT uv8;
-      led              : OUT std_logic;
-      iic1_scl         : OUT std_logic;
-      iic1_sda_o       : OUT std_logic;
-      iic1_sda_i       : IN  std_logic;
-      iic2_scl         : OUT std_logic;
-      iic2_sda_o       : OUT std_logic;
-      iic2_sda_i       : IN  std_logic;
-      iic3_scl         : OUT std_logic;
-      iic3_sda_o       : OUT std_logic;
-      iic3_sda_i       : IN  std_logic;
-      phy_mdc          : OUT std_logic;
-      phy_mdio_o       : OUT std_logic;
-      phy_mdio_en      : OUT std_logic;
-      phy_mdio_i       : IN  std_logic;
-      vga_ctrl         : OUT uv16;
-      sd_reg_w         : OUT type_sd_reg_w;
-      sd_reg_r         : IN  type_sd_reg_r;
-      mask_rev         : OUT uv8;
-      reset_mask_rev   : IN  uv8;
-      swconf           : IN  uv8;
-      stopa            : IN  std_logic;
-      clk              : IN  std_logic;
-      reset_na         : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_inter IS
-    GENERIC (
-      CPU0  : boolean;
-      CPU1  : boolean;
-      CPU2  : boolean;
-      CPU3  : boolean);
-    PORT (
-      sel          : IN  std_logic;
-      w            : IN  type_pvc_w;
-      r            : OUT type_pvc_r;
-      irl0         : OUT uv4;
-      irl1         : OUT uv4;
-      irl2         : OUT uv4;
-      irl3         : OUT uv4;
-      int_timer_s  : IN  std_logic;
-      int_timer_p0 : IN  std_logic;
-      int_timer_p1 : IN  std_logic;
-      int_timer_p2 : IN  std_logic;
-      int_timer_p3 : IN  std_logic;
-      int_esp      : IN  std_logic;
-      int_ether    : IN  std_logic;
-      int_sport    : IN  std_logic;
-      int_kbm      : IN  std_logic;
-      int_video    : IN  std_logic;
-      clk          : IN  std_logic;
-      reset_na     : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_iommu IS
-    GENERIC (
-      IOMMU_VER : uv8);
-    PORT (
-      sel      : IN  std_logic;
-      w        : IN  type_pvc_w;
-      r        : OUT type_pvc_r;
-      piw      : IN  type_plomb_w;
-      pir      : OUT type_plomb_r;
-      pow      : OUT type_plomb_w;
-      por      : IN  type_plomb_r;
-      mask_rev : IN  uv8;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_esp IS
-    GENERIC (
-      ASI : uv8 := ASI_SUPER_DATA);
-    PORT (
-      sel              : IN  std_logic;
-      w                : IN  type_pvc_w;
-      r                : OUT type_pvc_r;
-      pw               : OUT type_plomb_w;
-      pr               : IN  type_plomb_r;
-      scsi_w           : OUT type_scsi_w;
-      scsi_r           : IN  type_scsi_r;
-      int              : OUT std_logic;
-      dma_esp_iena     : IN  std_logic;
-      dma_esp_int      : OUT std_logic;
-      dma_esp_reset    : IN  std_logic;
-      dma_esp_write    : IN  std_logic;
-      dma_esp_addr_w   : IN  uv32;
-      dma_esp_addr_r   : OUT uv32;
-      dma_esp_addr_maj : IN  std_logic;
-      clk              : IN  std_logic;
-      reset_na         : IN  std_logic);
-  END COMPONENT;
-  
-  COMPONENT ts_lance IS
-    GENERIC (
-      BURSTLEN  : natural := 4;
-      ASI       : uv8 := ASI_USER_DATA);
-    PORT (
-      sel       : IN  std_logic;
-      w         : IN  type_pvc_w;
-      r         : OUT type_pvc_r;
-      pw        : OUT type_plomb_w;
-      pr        : IN  type_plomb_r;
-      mac_emi_w : OUT type_mac_emi_w;
-      mac_emi_r : IN  type_mac_emi_r;
-      mac_rec_w : OUT type_mac_rec_w;
-      mac_rec_r : IN  type_mac_rec_r;
-      int       : OUT std_logic;
-      eth_ba    : IN  uv8;
-      stopa     : IN  std_logic;
-      clk       : IN  std_logic;
-      reset     : IN  std_logic;
-      reset_na  : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_lance_mac IS
-    PORT (
-      phy_txd     : OUT uv4;
-      phy_tx_en   : OUT std_logic;
-      phy_tx_er   : OUT std_logic;
-      phy_tx_clk  : IN  std_logic;
-      phy_col     : IN  std_logic;
-      phy_rxd     : IN  uv4;
-      phy_rx_dv   : IN  std_logic;
-      phy_rx_er   : IN  std_logic;
-      phy_rx_clk  : IN  std_logic;
-      phy_crs     : IN  std_logic;
-      phy_int_n   : IN  std_logic;
-      phy_reset_n : OUT std_logic;
-      mac_emi_w   : IN  type_mac_emi_w;
-      mac_emi_r   : OUT type_mac_emi_r;
-      mac_rec_w   : IN  type_mac_rec_w;
-      mac_rec_r   : OUT type_mac_rec_r;
-      clk         : IN  std_logic;
-      reset_na    : IN  std_logic);
-  END COMPONENT;
-  
-  COMPONENT ts_rtc IS
-    GENERIC (
-      SYSFREQ : natural);
-    PORT (
-      sel      : IN  std_logic;
-      w        : IN  type_pvc_w;
-      r        : OUT type_pvc_r;
-      rtcinit  : IN unsigned(43 DOWNTO 0);
-      rtcset   : IN std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_sport IS
-    PORT (
-      sel      : IN  std_logic;
-      w        : IN  type_pvc_w;
-      r        : OUT type_pvc_r;
-      di1_data : IN  uv8;
-      di1_req  : IN  std_logic;
-      di1_rdy  : OUT std_logic;
-      do1_data : OUT uv8;
-      do1_req  : OUT std_logic;
-      do1_rdy  : IN  std_logic;
-      di2_data : IN  uv8;
-      di2_req  : IN  std_logic;
-      di2_rdy  : OUT std_logic;
-      do2_data : OUT uv8;
-      do2_req  : OUT std_logic;
-      do2_rdy  : IN  std_logic;
-      int      : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-  
-  COMPONENT ts_timer IS
-    GENERIC (
-      SYSFREQ : natural;
-      CPU0    : boolean;
-      CPU1    : boolean;
-      CPU2    : boolean;
-      CPU3    : boolean);  
-    PORT (
-      sel      : IN  std_logic;
-      w        : IN  type_pvc_w;
-      r        : OUT type_pvc_r;
-      int_s    : OUT std_logic;
-      int_p0   : OUT std_logic;
-      int_p1   : OUT std_logic;
-      int_p2   : OUT std_logic;
-      int_p3   : OUT std_logic;
-      stopa    : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_tcx IS
-    GENERIC (
-      TCX_ACCEL : boolean;
-      ADR       : uv32;
-      ADR_H     : uv4;
-      ASI       : uv8 := ASI_SUPER_INSTRUCTION);
-    PORT (
-      sel      : IN  std_logic;
-      w        : IN  type_pvc_w;
-      r        : OUT type_pvc_r;
-      pw       : OUT type_plomb_w;
-      pr       : IN  type_plomb_r;
-      vga_ctrl : IN  uv16;
-      cg3      : IN  std_logic;
-      vga_r    : OUT uv8;
-      vga_g    : OUT uv8;
-      vga_b    : OUT uv8;
-      vga_de   : OUT std_logic;
-      vga_hsyn : OUT std_logic;
-      vga_vsyn : OUT std_logic;
-      vga_hpos : OUT uint12;
-      vga_vpos : OUT uint12;
-      vga_clk  : IN  std_logic;
-      vga_en   : IN  std_logic;
-      vga_dis  : IN  std_logic;
-      pal_clk  : OUT std_logic;
-      pal_d    : OUT uv24;
-      pal_a    : OUT uv8;
-      pal_wr   : OUT std_logic;
-      int      : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT synth IS
-    GENERIC (
-      FREQ : natural;
-      RATE : natural);
-    PORT (
-      sync     : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT synth;
-  
-  COMPONENT acia IS
-    GENERIC (
-      TFIFO : natural;
-      RFIFO : natural);
-    PORT (
-      sync     : IN  std_logic;
-      txd      : OUT std_logic;
-      tx_data  : IN  uv8;
-      tx_req   : IN  std_logic;
-      tx_rdy   : OUT std_logic;
-      rxd      : IN  std_logic;
-      rx_data  : OUT uv8;
-      rx_break : OUT std_logic;
-      rx_req   : OUT std_logic;
-      rx_ack   : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_ps2sun IS
-    GENERIC (
-      SYSFREQ : natural);
-    PORT (
-      ps2_i      : IN  uv4;
-      ps2_o      : OUT uv4;
-      kbm_layout : IN  uv8;
-      di1_data   : OUT uv8;
-      di1_req    : OUT std_logic;
-      di1_rdy    : IN  std_logic;
-      do1_data   : IN  uv8;
-      do1_req    : IN  std_logic;
-      do1_rdy    : OUT std_logic;
-      di2_data   : OUT uv8;
-      di2_req    : OUT std_logic;
-      di2_rdy    : IN  std_logic;
-      do2_data   : IN  uv8;
-      do2_req    : IN  std_logic;
-      do2_rdy    : OUT std_logic;
-      clk        : IN  std_logic;
-      reset_na   : IN  std_logic);
-  END COMPONENT;
   
 --------------------------------------------------------------------------------
   SIGNAL sel,sel2 : type_sel;
@@ -544,7 +219,7 @@ BEGIN
 
   -----------------------------------
   -- Décodage d'adresses
-  i_ts_decode: ts_decode
+  i_ts_decode: ENTITY work.ts_decode
     GENERIC MAP (
       SS20 => SS20)
     PORT MAP (
@@ -553,11 +228,11 @@ BEGIN
       s        => sel,
       iboot    => iboot,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
 
   -----------------------------------
   -- Registre DMA2 & AUXIO
-  i_ts_dmaux: ts_dmaux
+  i_ts_dmaux: ENTITY work.ts_dmaux
     GENERIC MAP (
       HWCONF           => HWCONF,
       ETHERNET         => ETHERNET)
@@ -600,11 +275,11 @@ BEGIN
       swconf           => swconf,
       stopa            => stopa,
       clk              => clk,
-      reset_na         => reset_na);
+      reset_n          => reset_n);
 
   -----------------------------------
   -- Contrôleur d'interruptions
-  i_ts_inter: ts_inter
+  i_ts_inter: ENTITY work.ts_inter
     GENERIC MAP (
       CPU0         => CPU0,
       CPU1         => CPU1,
@@ -629,11 +304,11 @@ BEGIN
       int_kbm      => int_kbm,
       int_video    => int_video,
       clk          => clk,
-      reset_na     => reset_na);
+      reset_n      => reset_n);
 
   -----------------------------------
   -- IOMMU
-  i_ts_iommu: ts_iommu
+  i_ts_iommu: ENTITY work.ts_iommu
     GENERIC MAP (
       IOMMU_VER => IOMMU_VER)
     PORT MAP (
@@ -646,7 +321,7 @@ BEGIN
       por      => iommu_pr,
       mask_rev => mask_rev,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   Gen_MuxLANCE: IF ETHERNET GENERATE
     vi_w(0)<=esp_pw;
@@ -654,7 +329,7 @@ BEGIN
      
     esp_pr<=vi_r(0);
     lance_pr<=vi_r(1);
-    i_mux: plomb_mux
+    i_mux: ENTITY work.plomb_mux
       GENERIC MAP (
         NB   => 2,
         PROF => 10)
@@ -664,7 +339,7 @@ BEGIN
         o_w      => mux_pw,
         o_r      => mux_pr,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
   END GENERATE Gen_MuxLANCE;
   
   Gen_NoMuxLANCE: IF NOT ETHERNET GENERATE
@@ -683,7 +358,9 @@ BEGIN
   
   -----------------------------------
   -- Contrôleur SCSI
-  i_ts_esp: ts_esp
+  i_ts_esp: ENTITY work.ts_esp
+    GENERIC MAP (
+	   ASI => ASI_SUPER_DATA)
     PORT MAP (
       sel              => sel.esp,
       w                => io_w,
@@ -701,12 +378,14 @@ BEGIN
       dma_esp_addr_r   => dma_esp_addr_r,
       dma_esp_addr_maj => dma_esp_addr_maj,
       clk              => clk,
-      reset_na         => reset_na);
+      reset_n          => reset_n);
 
   -----------------------------------
   -- Ethernet Lance
   Gen_LANCE: IF ETHERNET GENERATE
-    i_ts_lance: ts_lance
+    i_ts_lance: ENTITY work.ts_lance
+	   GENERIC MAP (
+	     ASI => ASI_SUPER_DATA)
       PORT MAP (
         sel       => sel.lance,
         w         => io_w,
@@ -722,10 +401,10 @@ BEGIN
         stopa     => stopa,
         clk       => clk,
         reset     => dma_eth_reset,
-        reset_na  => reset_na);
+        reset_n   => reset_n);
 
     -- MII or RMII MAC
-    i_ts_lance_mac: ts_lance_mac
+    i_ts_lance_mac: ENTITY work.ts_lance_mac
       PORT MAP (
         phy_txd     => phy_txd,
         phy_tx_en   => phy_tx_en,
@@ -744,7 +423,7 @@ BEGIN
         mac_rec_w   => mac_rec_w,
         mac_rec_r   => mac_rec_r,
         clk         => clk,
-        reset_na    => reset_na);
+        reset_n     => reset_n);
     
   END GENERATE Gen_LANCE;
 
@@ -752,7 +431,7 @@ BEGIN
   
   -----------------------------------
   -- Horloge temps réel & NVRAM
-  i_ts_rtc: ts_rtc
+  i_ts_rtc: ENTITY work.ts_rtc
     GENERIC MAP (
       SYSFREQ => SYSFREQ)
     PORT MAP (
@@ -762,11 +441,11 @@ BEGIN
       rtcinit  => rtcinit,
       rtcset   => rtcset,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
 
   -----------------------------------
   -- Clavier, Souris
-  i_ts_sport1: ts_sport
+  i_ts_sport1: ENTITY work.ts_sport
     PORT MAP (
       sel       => sel.kbm,
       w         => io_w,
@@ -785,10 +464,10 @@ BEGIN
       do2_rdy   => '1',
       int       => int_kbm,
       clk       => clk,
-      reset_na  => reset_na);
+      reset_n   => reset_n);
   
   -- Ports série
-  i_ts_sport2: ts_sport
+  i_ts_sport2: ENTITY work.ts_sport
     PORT MAP (
       sel      => sel.sport,
       w        => io_w,
@@ -807,7 +486,7 @@ BEGIN
       do2_rdy  => do4_rdy,
       int      => int_sport,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -----------------------------------
   -- Emulation
@@ -816,7 +495,7 @@ BEGIN
     txd1<='1';
     txd2<='1';
     
-    i_ts_ps2sun: ts_ps2sun
+    i_ts_ps2sun: ENTITY work.ts_ps2sun
       GENERIC MAP (
         SYSFREQ => SYSFREQ)
       PORT MAP (
@@ -841,7 +520,7 @@ BEGIN
         do2_rdy    => OPEN,
 
         clk        => clk,
-        reset_na   => reset_na);
+        reset_n    => reset_n);
   
   END GENERATE GenEmu;
 
@@ -849,17 +528,17 @@ BEGIN
   GenNoEmu: IF NOT PS2 GENERATE
     
     -- Baudrate 1200
-    i_synth1200: synth
+    i_synth1200: ENTITY work.synth
       GENERIC MAP (
         FREQ => SYSFREQ,
         RATE => 1200)
       PORT MAP (
         sync     => sync_kbm,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     -- Keyboard
-    i_acia1: acia
+    i_acia1: ENTITY work.acia
       GENERIC MAP (
         TFIFO => 3,
         RFIFO => 6)
@@ -875,10 +554,10 @@ BEGIN
         rx_req   => di1_req,
         rx_ack   => di1_rdy,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     -- Mouse
-    i_acia2: acia
+    i_acia2: ENTITY work.acia
       GENERIC MAP (
         TFIFO => 0,
         RFIFO => 16)
@@ -894,7 +573,7 @@ BEGIN
         rx_req   => di2_req,
         rx_ack   => di2_rdy,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
   END GENERATE GenNoEmu;
 
@@ -911,16 +590,16 @@ BEGIN
   GenSPORT2:IF SPORT2 GENERATE
     
     -- Baudrate 1200
-    i_synth1200: synth
+    i_synth1200: ENTITY work.synth
       GENERIC MAP (
         FREQ => SYSFREQ,
         RATE => 115200)
       PORT MAP (
         sync     => sync_sport2,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
-    i_acia4: acia
+    i_acia4: ENTITY work.acia
       GENERIC MAP (
         TFIFO => 10,
         RFIFO => 10)
@@ -936,11 +615,11 @@ BEGIN
         rx_req   => di4_req,
         rx_ack   => di4_rdy,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
   END GENERATE GenSPORT2;
   -----------------------------------
   -- Timer
-  i_ts_timer: ts_timer
+  i_ts_timer: ENTITY work.ts_timer
     GENERIC MAP (
       SYSFREQ => SYSFREQ,
       CPU0    => CPU0,
@@ -958,15 +637,16 @@ BEGIN
       int_p3   => int_timer_p3,
       stopa    => stopa,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -----------------------------------
   -- Video
-  i_ts_tcx: ts_tcx
+  i_ts_tcx: ENTITY work.ts_tcx
     GENERIC MAP (
       TCX_ACCEL => TCX_ACCEL,
       ADR       => TCX_ADR,
-      ADR_H     => TCX_ADR_H)
+      ADR_H     => TCX_ADR_H,
+		ASI       => ASI_SUPER_INSTRUCTION)
     PORT MAP (
       sel      => sel.video,
       w        => io_w,
@@ -985,14 +665,14 @@ BEGIN
       vga_vpos => vga_vpos,
       vga_clk  => vga_clk,
       vga_en   => vga_en,
-      vga_dis  => vga_dis,
+      vga_on   => vga_on,
       pal_clk  => pal_clk,
       pal_d    => pal_d,
       pal_a    => pal_a,
       pal_wr   => pal_wr,
       int      => int_video,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -----------------------------------
   sel2 <=sel  WHEN rising_edge(clk);

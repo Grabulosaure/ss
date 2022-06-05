@@ -52,7 +52,7 @@ ENTITY vid IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY vid;
 
@@ -192,20 +192,11 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Plomb DMA burst
-  Plombage:PROCESS(clk,reset_na,adr_h)
+  Plombage:PROCESS(clk)
     VARIABLE ptr : unsigned(N_LINE-1 DOWNTO 0);
     VARIABLE pop_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      pw_i<=PLOMB_W_INIT;
-      pw_i.ah<=adr_h;
-      plomb_aec<=0;
-      vfifo_lev<=0;
-      vfifo_ra<=0;
-      vfifo_wa<=0;
-      dma_stopreq<='1';
-      dma_a<=x"00100000";
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       pw_i<=PLOMB_W_INIT;
       pw_i.ah<=adr_h;
 
@@ -297,6 +288,17 @@ BEGIN
           etat<=sRUN;
       END CASE;
       
+      IF reset_n='0' THEN
+        etat<=sSTOP;
+        pw_i<=PLOMB_W_INIT;
+        pw_i.ah<=adr_h;
+        plomb_aec<=0;
+        vfifo_lev<=0;
+        vfifo_ra<=0;
+        vfifo_wa<=0;
+        dma_stopreq<='1';
+        dma_a<=x"00100000";
+      END IF;
     END IF;
   END PROCESS Plombage;
   
@@ -306,16 +308,9 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Resync
-  Sync: PROCESS (clk, reset_na) IS
+  Sync: PROCESS (clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      pop<='0';
-      raz<='0';
-      popsync<='0';
-      popsync2<='0';
-      razsync<='0';
-      razsync2<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -----------------------------------------------
       -- Signaux VGA -> Interne
       popsync<=g_pop;
@@ -324,12 +319,21 @@ BEGIN
       razsync2<=razsync;
       pop<=popsync2 XOR popsync;
       raz<=razsync2 XOR razsync;
+		
+      IF reset_n='0' THEN
+        pop<='0';
+        raz<='0';
+        popsync<='0';
+        popsync2<='0';
+        razsync<='0';
+        razsync2<='0';
+		END IF;
     END IF;
   END PROCESS Sync;
 
-  GenGRESET: PROCESS (g_clk, reset_na) IS
+  GenGRESET: PROCESS (g_clk, reset_n) IS
   BEGIN
-    IF reset_na='0' THEN
+    IF reset_n='0' THEN
       g_reset_na<='0';
       g_reset_na2<='0';
     ELSIF rising_edge(g_clk) THEN

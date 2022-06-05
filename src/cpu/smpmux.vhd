@@ -73,7 +73,7 @@ ENTITY smpmux IS
     mem_w    : OUT type_plomb_w;
     mem_r    : IN  type_plomb_r;
     
-    reset_na : IN std_logic;
+    reset_n  : IN std_logic;
     clk      : IN std_logic
     );
 END ENTITY smpmux;
@@ -459,15 +459,10 @@ BEGIN
 
   mem_w<=mem_w_l;
   -------------------------------------------------------------------------
-  Seq:PROCESS(clk,reset_na)
+  Seq:PROCESS(clk)
     VARIABLE push_v,pop_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      etat<=sIDLE;
-      level<=0;
-      iocpt<=0;
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       etat<=etat_c;
       
       no<=no_c;
@@ -510,6 +505,11 @@ BEGIN
         etat<=sIDLE;
       END IF;
       
+      IF reset_n='0' THEN
+        etat<=sIDLE;
+        level<=0;
+        iocpt<=0;
+      END IF;  
     END IF;
   END PROCESS Seq;
 

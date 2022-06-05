@@ -40,7 +40,7 @@ ENTITY plomb_fifo IS
 
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY plomb_fifo;
 
@@ -62,13 +62,10 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- FIFO_W
-  SyncW: PROCESS  (clk, reset_na)
+  SyncW: PROCESS  (clk)
     VARIABLE push : boolean;
   BEGIN
-    IF reset_na = '0' THEN
-      lev_w<=0;
-      vv_w<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       push:=(i_w.req='1' AND i_ack='1');
       
       IF push THEN
@@ -86,6 +83,12 @@ BEGIN
           lev_w<=lev_w-1;
         END IF;
       END IF;
+
+      IF reset_n = '0' THEN
+        lev_w<=0;
+        vv_w<='0';
+      END IF;
+
     END IF;
   END PROCESS SyncW;
   
@@ -111,13 +114,10 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- FIFO_R
-  SyncR: PROCESS  (clk, reset_na)
+  SyncR: PROCESS  (clk)
     VARIABLE push : boolean;
   BEGIN
-    IF reset_na = '0' THEN
-      lev_r<=0;
-      vv_r<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       push:=(o_r.dreq='1' AND o_dack='1');
       
       IF push THEN
@@ -135,6 +135,12 @@ BEGIN
           lev_r<=lev_r-1;
         END IF;
       END IF;
+
+      IF reset_n = '0' THEN
+        lev_r<=0;
+        vv_r<='0';
+      END IF;
+
     END IF;
   END PROCESS SyncR;
   

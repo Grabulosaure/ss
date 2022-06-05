@@ -44,7 +44,7 @@ ENTITY idu IS
     dl_r     : IN  type_dl_r;
     
     -- Glo
-    reset_na : IN  std_logic;
+    reset_n  : IN  std_logic;
     clk      : IN  std_logic
     );
 END ENTITY idu;
@@ -62,14 +62,9 @@ ARCHITECTURE rtl OF idu IS
 BEGIN
   
   ------------------------------------------------------------------------------
-  Coccinelle:PROCESS (clk,reset_na) IS
+  Coccinelle:PROCESS (clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      rstate<=sIDLE;
-      wstate<=sIDLE;
-      dl_w.wr<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       --------------------------------------
       tx_req_i<='0';
       rx_ack_i<='0';
@@ -163,8 +158,13 @@ BEGIN
           END IF;
 
       END CASE;
-    END IF;
 
+      IF reset_n='0' THEN
+        rstate<=sIDLE;
+        wstate<=sIDLE;
+        dl_w.wr<='0';
+      END IF;
+    END IF;
   END PROCESS Coccinelle;
 
   tx_req<=tx_req_i;

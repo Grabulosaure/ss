@@ -50,7 +50,7 @@ ENTITY ts_aciamux IS
     obreak   : OUT std_logic;
     osel     : OUT std_logic;
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_aciamux;
 
@@ -85,7 +85,7 @@ BEGIN
       rx_req   => rx_req,
       rx_ack   => rx_ack,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -----------------------------------
   -- Commutation signal CTS
@@ -97,12 +97,9 @@ BEGIN
   -----------------------------------
   -- Commutation code BREAK
   GenBREAK: IF BREAK GENERATE
-    Sync_sel:PROCESS (clk,reset_na) IS
+    Sync_sel:PROCESS (clk) IS
     BEGIN
-      IF reset_na='0' THEN
-        idi<='0';
-        sel<='0';
-      ELSIF rising_edge(clk) THEN
+      IF rising_edge(clk) THEN
         IF rx_break='1' THEN
           idi<='1';
         ELSIF rx_req='1' THEN
@@ -115,6 +112,10 @@ BEGIN
               sel<='1';
             END IF;
           END IF;
+        END IF;
+        IF reset_n='0' THEN
+          idi<='0';
+          sel<='0';
         END IF;
       END IF;
     END PROCESS;

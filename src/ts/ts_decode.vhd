@@ -28,7 +28,7 @@ ENTITY ts_decode IS
     -- Global
     iboot    : IN std_logic;
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_decode;
 

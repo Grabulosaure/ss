@@ -76,7 +76,7 @@ ENTITY mcu_tw IS
     mmu_tw_st      : OUT uv2;
     mmu_tw_di      : OUT std_logic; -- 0=DATA 1=INST
     
-    reset_na       : IN  std_logic;
+    reset_n        : IN  std_logic;
     clk            : IN  std_logic
     );
   
@@ -86,7 +86,8 @@ END ENTITY mcu_tw;
 ARCHITECTURE rtl OF mcu_tw IS
   
   CONSTANT NB_L2TLB    : natural := CPUCONF(CPUTYPE).NB_L2TLB;
-  
+  CONSTANT N_PTD_L2    : natural := CPUCONF(CPUTYPE).N_PTD_L2;
+
   TYPE enum_tw_etat IS (sOISIF,sTABLEWALK,sTABLEWALK_ADRS,sTABLEWALK_READ,
                         sTABLEWALK_FINAL,sTABLEWALK_WRITE,sTABLEWALK_L2TLB);
   SIGNAL tw_etat : enum_tw_etat;
@@ -102,17 +103,6 @@ ARCHITECTURE rtl OF mcu_tw IS
     va  : uv32;                          -- Adresse virtuelle
   END RECORD;
   SIGNAL tww : type_tw;
-  
-  COMPONENT iram IS
-    GENERIC (
-      N    : uint8;
-      OCT  : boolean);
-    PORT (
-      mem_w    : IN  type_pvc_w;
-      mem_r    : OUT type_pvc_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT iram;
   
   FUNCTION tw_asi (
     CONSTANT ext_dr_us : std_logic;
@@ -136,12 +126,26 @@ ARCHITECTURE rtl OF mcu_tw IS
   SIGNAL tw_st : uv2;              -- Niveau pagetable pendant TW
   
   -------------------------------------------------------------
-  SIGNAL ptd_l2i : unsigned(31 DOWNTO 2);      -- Inst Lev.2 Page Table Pointer
-  SIGNAL ptd_l2i_tag : unsigned(31 DOWNTO 18); -- Inst Lev.2 Virt. Adrs
-  SIGNAL ptd_l2i_val : std_logic;              -- Valid
-  SIGNAL ptd_l2d : unsigned(31 DOWNTO 2);      -- Data Lev.2 Page Table Pointer
-  SIGNAL ptd_l2d_tag : unsigned(31 DOWNTO 18); -- Data Lev.2 Virt. Adrs
-  SIGNAL ptd_l2d_val : std_logic;              -- Valid
+  TYPE type_ptd_l2 IS RECORD
+    ptd : unsigned(31 DOWNTO 2);  -- Inst Lev.2 Page Table Pointer
+    tag : unsigned(31 DOWNTO 18); -- Inst Lev.2 Virt. Adrs
+    v   : std_logic;              -- Valid  
+  END RECORD;
+  TYPE arr_ptd_l2 IS ARRAY(natural RANGE <>) OF type_ptd_l2;
+
+  SIGNAL ptd_l2i : arr_ptd_l2(0 TO N_PTD_L2-1);
+  SIGNAL ptd_l2d : arr_ptd_l2(0 TO N_PTD_L2-1);
+
+  SIGNAL ptd_l2d_hist : uv8;
+  SIGNAL ptd_l2i_hist : uv8;
+
+  -- SIGNAL ptd_l2i : unsigned(31 DOWNTO 2);      -- Inst Lev.2 Page Table Pointer
+  -- SIGNAL ptd_l2i_tag : unsigned(31 DOWNTO 18); -- Inst Lev.2 Virt. Adrs
+  -- SIGNAL ptd_l2i_val : std_logic;              -- Valid
+  -- SIGNAL ptd_l2d : unsigned(31 DOWNTO 2);      -- Data Lev.2 Page Table Pointer
+  -- SIGNAL ptd_l2d_tag : unsigned(31 DOWNTO 18); -- Data Lev.2 Virt. Adrs
+  -- SIGNAL ptd_l2d_val : std_logic;              -- Valid
+
   SIGNAL ptd_l0 : unsigned(31 DOWNTO 2);       -- Lev.0 Page Table Pointer
   SIGNAL ptd_l0_val : std_logic;               -- Valid
 
@@ -169,12 +173,9 @@ ARCHITECTURE rtl OF mcu_tw IS
 BEGIN
   --###############################################################
   -- Tablewalk
-  TurlusiphonTW:PROCESS (clk, reset_na)
+  TurlusiphonTW:PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      inst_tw_rdy_l<='1';
-      data_tw_rdy_l<='1';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF inst_tw_rdy_l='1' THEN
         inst_tw_mem<=inst_ext_c;
       END IF;
@@ -192,6 +193,11 @@ BEGIN
         data_tw_rdy_l<='1';
       ELSIF data_tw_req='1' THEN
         data_tw_rdy_l<='0';
+      END IF;
+
+      IF reset_n='0' THEN
+        inst_tw_rdy_l<='1';
+        data_tw_rdy_l<='1';
       END IF;
     END IF;
   END PROCESS TurlusiphonTW;
@@ -220,38 +226,27 @@ BEGIN
   l2tlb_w.dw <=l2tlb_dw;
   l2tlb_dr<=l2tlb_r.dr;
   
-  i_l2tlb: iram
+  i_l2tlb: ENTITY work.iram
     GENERIC MAP (
       N => NB_L2TLB+4, OCT=>false)
     PORT MAP (
       mem_w    => l2tlb_w,
       mem_r    => l2tlb_r,
-      clk      => clk,
-      reset_na => reset_na);
+      clk      => clk);
   
-  Walker:PROCESS (clk, reset_na)
+  Walker:PROCESS (clk)
     VARIABLE l2tlb_hit_v : std_logic;
     VARIABLE l2tlb_tag_v : uv32;
     VARIABLE pa_v : unsigned(35 DOWNTO 0);
     VARIABLE cont_v,err_v : std_logic;
     VARIABLE ig_v : std_logic;
+    VARIABLE ptd_l2d_v,ptd_l2i_v : unsigned(31 DOWNTO 2);
+    VARIABLE ptd_l2d_hit_v,ptd_l2i_hit_v : boolean;
+    VARIABLE ptd_l2d_n_v,ptd_l2i_n_v : natural RANGE 0 TO N_PTD_L2-1;
+    VARIABLE ptd_l2d_old_v,ptd_l2i_old_v : natural RANGE 0 TO N_PTD_L2-1;
+
   BEGIN
-    IF reset_na='0' THEN
-      l2tlb_tw<='0';
-      l2tlb_ipend<=0;
-      l2tlb_dpend<=0;
-      l2tlb_icpt<=(OTHERS =>'0');
-      l2tlb_dcpt<=(OTHERS =>'0');
-      l2tlb_cpt <=(OTHERS =>'0');
-      l2tlb_cpt2<=(OTHERS =>'0');
-      ptd_l0_val<='0';
-      ptd_l2d_val<='0';
-      ptd_l2i_val<='0';
-      tw_done_inst<='0';
-      tw_done_data<='0';
-      tw_ext_req<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       tw_err<='0';
       l2tlb_wr<='0';
       l2tlb_wr2<=l2tlb_wr;
@@ -276,6 +271,37 @@ BEGIN
       l2tlb_tag_v:=vtag_encode(tww.va(31 DOWNTO NB_L2TLB+13) &
                                l2tlb_cpt2 & tww.va(11 DOWNTO 0),
                                mmu_ctxr,'1','0',"00",12,NB_CONTEXT);
+
+      -------------------------------------------------
+      ptd_l2d_v := (OTHERS =>'0');
+      ptd_l2d_hit_v := false;
+      ptd_l2d_n_v := 0;
+      ptd_l2d_old_v := lru_old(ptd_l2d_hist,N_PTD_L2);
+      
+      ptd_l2i_v := (OTHERS =>'0');
+      ptd_l2i_hit_v := false;
+      ptd_l2i_n_v := 0;
+      ptd_l2i_old_v := lru_old(ptd_l2i_hist,N_PTD_L2);
+      
+      FOR i IN 0 TO N_PTD_L2-1 LOOP
+        IF ptd_l2d(i).tag(31 DOWNTO 18)=tww.va(31 DOWNTO 18) AND ptd_l2d(i).v='1' THEN
+          ptd_l2d_hit_v:=true;
+          ptd_l2d_v := ptd_l2d_v OR ptd_l2d(i).ptd;
+          ptd_l2d_n_v := i;
+        END IF;
+        IF ptd_l2d(i).v='0' THEN
+          ptd_l2d_old_v := i;
+        END IF;
+        IF ptd_l2i(i).tag(31 DOWNTO 18)=tww.va(31 DOWNTO 18) AND ptd_l2i(i).v='1' THEN
+          ptd_l2i_hit_v:=true;
+          ptd_l2i_v := ptd_l2i_v OR ptd_l2i(i).ptd;
+          ptd_l2i_n_v := i;
+        END IF;
+        IF ptd_l2i(i).v='0' THEN
+          ptd_l2i_old_v := i;
+        END IF;
+      END LOOP;
+
       -------------------------------------------------
       CASE tw_etat IS
         WHEN sOISIF =>
@@ -345,22 +371,23 @@ BEGIN
                 tw_etat<=sTABLEWALK_L2TLB;
                 l2tlb_a_mem(0)<='1'; -- Lecture data
                 tw_ext_req<='0';
-              ELSIF ptd_l2d_tag(31 DOWNTO 18)=tww.va(31 DOWNTO 18)
-                AND ptd_l2d_val='1' AND tww.di=TDI_DATA THEN
+              ELSIF ptd_l2d_hit_v AND tww.di=TDI_DATA THEN
                 -- DATA : Le cache de PTP L2 est valide et il correspond
                 tw_st<="11";
-                pa_v(35 DOWNTO 8):=ptd_l2d(31 DOWNTO 4);
+                pa_v(35 DOWNTO 8):=ptd_l2d_v(31 DOWNTO 4);
                 pa_v( 7 DOWNTO 0):=tww.va(17 DOWNTO 12) & "00";
                 tw_ext_req<='1';
                 tw_ext.pw.lock<='1';
-              ELSIF ptd_l2i_tag(31 DOWNTO 18)=tww.va(31 DOWNTO 18)
-                AND ptd_l2i_val='1' AND tww.di=TDI_INST THEN
+                ptd_l2d_hist <= lru_maj(ptd_l2d_hist,ptd_l2d_n_v,N_PTD_L2);
+
+              ELSIF ptd_l2i_hit_v AND tww.di=TDI_INST THEN
                 -- INST : Le cache de PTP L2 est valide et il correspond
                 tw_st<="11";
-                pa_v(35 DOWNTO 8):=ptd_l2i(31 DOWNTO 4);
+                pa_v(35 DOWNTO 8):=ptd_l2i_v(31 DOWNTO 4);
                 pa_v( 7 DOWNTO 0):=tww.va(17 DOWNTO 12) & "00";
                 tw_ext_req<='1';
                 tw_ext.pw.lock<='1';
+                ptd_l2i_hist <= lru_maj(ptd_l2i_hist,ptd_l2i_n_v,N_PTD_L2);
                 
               ELSIF ptd_l0_val='1' THEN
                 -- Le cache de PTP L0 est valide et il correspond
@@ -417,6 +444,7 @@ BEGIN
               tw_va<=tww.va;
               tw_op<=tww.op;
               l2tlb_tw<='0';
+
             ELSIF cont_v='1' THEN
               -- On continue le TW
               tw_st<=tw_st+1;
@@ -461,13 +489,15 @@ BEGIN
               END IF;
               IF tw_st="10" AND ext_dr(1 DOWNTO 0)=ET_PTD THEN
                 IF tww.di=TDI_DATA THEN
-                  ptd_l2d<=ext_dr(31 DOWNTO 2);
-                  ptd_l2d_tag<=tww.va(31 DOWNTO 18);
-                  ptd_l2d_val<='1';
+                  ptd_l2d(ptd_l2d_old_v).ptd <=ext_dr(31 DOWNTO 2);
+                  ptd_l2d(ptd_l2d_old_v).tag <=tww.va(31 DOWNTO 18);
+                  ptd_l2d(ptd_l2d_old_v).v   <='1';
+                  ptd_l2d_hist <= lru_maj(ptd_l2d_hist,ptd_l2d_old_v,N_PTD_L2);
                 ELSE
-                  ptd_l2i<=ext_dr(31 DOWNTO 2);
-                  ptd_l2i_tag<=tww.va(31 DOWNTO 18);
-                  ptd_l2i_val<='1';
+                  ptd_l2i(ptd_l2i_old_v).ptd <=ext_dr(31 DOWNTO 2);
+                  ptd_l2i(ptd_l2i_old_v).tag <=tww.va(31 DOWNTO 18);
+                  ptd_l2i(ptd_l2i_old_v).v   <='1';
+                  ptd_l2i_hist <= lru_maj(ptd_l2i_hist,ptd_l2i_old_v,N_PTD_L2);
                 END IF;
               END IF;
             END IF;
@@ -563,11 +593,15 @@ BEGIN
       END IF;
       IF mmu_ctxtpr_maj='1' OR mmu_ctxr_maj='1' OR
         dtlb_inval='1' THEN
-        ptd_l2d_val<='0';
+        FOR i IN 0 TO N_PTD_L2-1 LOOP
+          ptd_l2d(i).v<='0';
+        END LOOP;
       END IF;
       IF mmu_ctxtpr_maj='1' OR mmu_ctxr_maj='1' OR
         itlb_inval='1' THEN
-        ptd_l2i_val<='0';
+        FOR i IN 0 TO N_PTD_L2-1 LOOP
+          ptd_l2i(i).v<='0';
+        END LOOP;
       END IF;
       
       -------------------------------------------------
@@ -593,6 +627,26 @@ BEGIN
         l2tlb_icpt<=l2tlb_icpt+1;
       END IF;
       
+      -------------------------------------------------
+      IF reset_n='0' THEN
+        l2tlb_tw<='0';
+        l2tlb_ipend<=0;
+        l2tlb_dpend<=0;
+        l2tlb_icpt<=(OTHERS =>'0');
+        l2tlb_dcpt<=(OTHERS =>'0');
+        l2tlb_cpt <=(OTHERS =>'0');
+        l2tlb_cpt2<=(OTHERS =>'0');
+        ptd_l0_val<='0';
+        FOR i IN 0 TO N_PTD_L2-1 LOOP
+          ptd_l2d(i).v<='0';
+          ptd_l2i(i).v<='0';
+        END LOOP;
+        tw_done_inst<='0';
+        tw_done_data<='0';
+        tw_ext_req<='0';
+        tw_etat<=sOISIF;
+      END IF;        
+
     END IF;
   END PROCESS Walker;
   

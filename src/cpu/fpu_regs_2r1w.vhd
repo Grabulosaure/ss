@@ -31,7 +31,6 @@ ENTITY fpu_regs_2r1w IS
     fd       : IN  uv64;
     fd_maj   : IN  unsigned(0 TO 1);
     
-    reset_na : IN  std_logic;
     clk      : IN  std_logic
     );
 END ENTITY fpu_regs_2r1w;

@@ -69,8 +69,8 @@ ENTITY ts_timer IS
     stopa  : IN  std_logic;
     
     -- Global
-    clk      : IN std_logic;
-    reset_na : IN std_logic
+    clk     : IN std_logic;
+    reset_n : IN std_logic
     );
 END ENTITY ts_timer;
 
@@ -121,22 +121,10 @@ BEGIN
 
   rsel<=w.req AND sel;
   
-  Pendulette: PROCESS (clk,reset_na)
+  Pendulette: PROCESS (clk)
     VARIABLE ad : uv2;
   BEGIN
-    IF reset_na='0' THEN
-      p_ov<="0000";
-      p_mode<="0000";
-      p_run<="0000";
-      p_cpt(0)<=x"00000000" & UNITE;
-      p_cpt(1)<=x"00000000" & UNITE;
-      p_cpt(2)<=x"00000000" & UNITE;
-      p_cpt(3)<=x"00000000" & UNITE;
-      
-      s_cpt<=UNITE;
-      s_lim<=(OTHERS => '0');
-      s_ov<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ----------------------------------------------
       -- Comptage
       IF pulse='1' THEN
@@ -262,6 +250,21 @@ BEGIN
           p_mode<=w.dw(3 DOWNTO 0) AND CPUEN;
         END IF;
         dr<="0000000000000000000000000000" & p_mode;
+      END IF;
+
+      ----------------------------------------------
+      IF reset_n='0' THEN
+        p_ov<="0000";
+        p_mode<="0000";
+        p_run<="0000";
+        p_cpt(0)<=x"00000000" & UNITE;
+        p_cpt(1)<=x"00000000" & UNITE;
+        p_cpt(2)<=x"00000000" & UNITE;
+        p_cpt(3)<=x"00000000" & UNITE;
+        
+        s_cpt<=UNITE;
+        s_lim<=(OTHERS => '0');
+        s_ov<='0';
       END IF;
     END IF;    
   END PROCESS Pendulette;

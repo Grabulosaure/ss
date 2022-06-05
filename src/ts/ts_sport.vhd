@@ -54,7 +54,7 @@ ENTITY ts_sport IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_sport;
 
@@ -143,23 +143,14 @@ BEGIN
   
   ----------------------------------------------
   -- Lectures & Ecritures registres
-  BusRW: PROCESS (clk,reset_na)
+  BusRW: PROCESS (clk)
     VARIABLE cw,dw,cr,dr : uv8; -- Ecritures, Lectures
 
     VARIABLE drv : arr_uv32(1 TO 2);
     VARIABLE c_rd,d_rd : unsigned(1 TO 2); -- Ctrl/Data A/B Read/Write
     VARIABLE c_wr,d_wr : unsigned(1 TO 2);
   BEGIN
-    IF reset_na='0' THEN
-      rdr<=(OTHERS => '0');
-      emi_push<="00";
-      rec_pop<="00";
-      rad<="0000";       -- <AVOIR> Bug OpenBIOS : RAZ rad avant init UART
-      parms(1).rx_en<='0';
-      parms(1).tx_en<='0';
-      parms(2).rx_en<='0';
-      parms(2).tx_en<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       emi_push<="00";
       rec_pop<="00";
       tx_iclr<="00";
@@ -518,7 +509,33 @@ BEGIN
         rdr<=drv(2);
       END IF;
       ----------------------------------------------
-      
+      IF reset_n='0' THEN
+        emi_push<="00";
+        rec_pop<="00";
+        rad<="0000";       -- <AVOIR> Bug OpenBIOS : RAZ rad avant init UART
+        parms(1).rx_en<='0';
+        parms(2).rx_en<='0';
+        parms(1).rx_ie<=RX_IE_DISABLE;
+        parms(2).rx_ie<=RX_IE_DISABLE;
+        parms(1).baud <=x"0000";
+        parms(2).baud <=x"0000";
+        parms(1).rate <="00";
+        parms(2).rate <="00";
+        parms(1).par <="00";
+        parms(2).par <="00";
+        parms(1).stop <="00";
+        parms(2).stop <="00";
+        parms(1).rx_bits <="00";
+        parms(2).rx_bits <="00";
+        parms(1).tx_bits <="00";
+        parms(2).tx_bits <="00";
+        parms(1).tx_en<='0';
+        parms(2).tx_en<='0';
+        parms(1).tx_ie<='0';
+        parms(2).tx_ie<='0';
+        vector <= x"00";
+        vechilo<='0';
+      END IF;
     END IF;
   END PROCESS BusRW;
   
@@ -544,17 +561,9 @@ BEGIN
   
   ----------------------------------------------
   -- Emission/Receptions
-  EmiRec:PROCESS (clk,reset_na)
+  EmiRec:PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      emibuf(1).full<='0';
-      emibuf(2).full<='0';
-      recbuf(1).full<='0';
-      recbuf(2).full<='0';
-      rx_avail<="00";
-      tx_fin<="00";
-      do_req<="00";
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -- Emissions
       FOR i IN 1 TO 2 LOOP
         IF parms(i).tx_en='1' THEN
@@ -611,18 +620,24 @@ BEGIN
         END IF;
       END LOOP;
       
+      ---------------------------------
+      IF reset_n='0' THEN
+        emibuf(1).full<='0';
+        emibuf(2).full<='0';
+        recbuf(1).full<='0';
+        recbuf(2).full<='0';
+        rx_avail<="00";
+        tx_fin<="00";
+        do_req<="00";
+      END IF;
     END IF;
   END PROCESS EmiRec;
 
   ----------------------------------------------
   -- Interruptions
-  Inter:PROCESS (clk,reset_na)
+  Inter:PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      rx_ip<="00";
-      tx_ip<="00";
-      tx_mip<="00";
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       tx_fin_pre<=tx_fin;
       rx_avail_pre<=rx_avail;
       
@@ -658,7 +673,12 @@ BEGIN
           rx_ip(i)<='0';
         END IF;
       END LOOP;
-      
+      ----------------------------------------
+      IF reset_n='0' THEN
+        rx_ip<="00";
+        tx_ip<="00";
+        tx_mip<="00";
+      END IF;
     END IF;
   END PROCESS Inter;
 

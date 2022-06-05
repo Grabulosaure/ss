@@ -37,7 +37,7 @@ ENTITY mcu IS
     cachena  : IN std_logic;
     l2tlbena : IN std_logic;
     reset    : IN std_logic;            -- Reset synchrone
-    reset_na : IN std_logic;            -- Reset asynchrone
+    reset_n  : IN std_logic;            -- Reset asynchrone
     clk      : IN std_logic             -- Horloge
     );
 END ENTITY mcu;

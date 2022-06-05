@@ -41,7 +41,7 @@ ENTITY plomb_mux IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n : IN std_logic
     );
 END ENTITY plomb_mux;
 
@@ -78,17 +78,10 @@ BEGIN
   
   -------------------------------------------------------------
   -- Mémorise l'accès en cours, empile
-  Sync: PROCESS (clk,reset_na) IS
+  Sync: PROCESS (clk) IS
     VARIABLE push_v,pop_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      aec<='0';
-      bec<='0';
-      loc<='0';
-      fifo<=(OTHERS => 0);
-      level<=0;
-      cpt<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -- Accès en cours
       aec<=req_c AND NOT o_r.ack;
       
@@ -139,6 +132,14 @@ BEGIN
         level<=level-1;
       END IF;
 
+      IF reset_n='0' THEN
+        aec<='0';
+        bec<='0';
+        loc<='0';
+        fifo<=(OTHERS => 0);
+        level<=0;
+        cpt<=0;
+      END IF;
     END IF;
   END PROCESS Sync;
   

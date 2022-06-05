@@ -77,7 +77,7 @@ ENTITY ts_inter IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY ts_inter;
 
@@ -151,16 +151,9 @@ BEGIN
   hardint3<=hardint(pend,int_timer_p3,itr,"11");
   
   -------------------------------------------------
-  Interrupteur: PROCESS (clk,reset_na)
+  Interrupteur: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      softint0<="000000000000000";
-      softint1<="000000000000000";
-      softint2<="000000000000000";
-      softint3<="000000000000000";
-      mask<=x"7FFFFFFF";
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ----------------------------------------------
       -- Lectures & Ecritures
 
@@ -310,6 +303,13 @@ BEGIN
         END IF;
       END IF;
 
+      IF reset_n='0' THEN
+        softint0<="000000000000000";
+        softint1<="000000000000000";
+        softint2<="000000000000000";
+        softint3<="000000000000000";
+        mask<=x"7FFFFFFF";
+      END IF;
     END IF;    
   END PROCESS Interrupteur;
 
