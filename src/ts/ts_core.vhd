@@ -75,7 +75,7 @@ ENTITY ts_core IS
     vga_vsyn    : OUT std_logic;
     vga_clk     : IN  std_logic;
     vga_en      : IN  std_logic;
-    vga_dis     : IN  std_logic;
+    vga_on      : IN  std_logic;
     pal_clk     : OUT std_logic;
     pal_d       : OUT uv24;
     pal_a       : OUT uv8;
@@ -150,8 +150,8 @@ ENTITY ts_core IS
     ps2_o       : OUT uv4;
     
     -- Configuration/Reset
-    reset       : IN  std_logic;
-    reset_na    : IN  std_logic;
+    preset      : IN  std_logic; -- Processor REST
+    reset_n     : IN  std_logic; -- Global RESET
     swconf      : IN  uv8;
     cachena     : IN  std_logic;
     l2tlbena    : IN  std_logic;
@@ -234,7 +234,7 @@ ARCHITECTURE rtl OF ts_core IS
       irl      : IN  uv4;
       intack   : OUT std_logic;
       reset    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT;
 
@@ -245,7 +245,7 @@ ARCHITECTURE rtl OF ts_core IS
       i        : IN  type_fpu_i;
       o        : OUT type_fpu_o;
       reset    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT fpu;
 
@@ -263,7 +263,7 @@ ARCHITECTURE rtl OF ts_core IS
       i3       : IN  type_fpu_i;
       o3       : OUT type_fpu_o;
       reset    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT fpu_mp;
   
@@ -279,7 +279,7 @@ ARCHITECTURE rtl OF ts_core IS
       dreset   : OUT std_logic;
       stopa    : OUT std_logic;
       xstop    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT iu_debug;
   
@@ -305,7 +305,7 @@ ARCHITECTURE rtl OF ts_core IS
       dreset   : OUT std_logic;
       stopa    : OUT std_logic;
       xstop    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT iu_debug_mp;
   
@@ -327,7 +327,7 @@ ARCHITECTURE rtl OF ts_core IS
       cachena  : IN  std_logic;
       l2tlbena : IN  std_logic;
       reset    : IN  std_logic;
-      reset_na : IN  std_logic;
+      reset_n  : IN  std_logic;
       clk      : IN  std_logic);
   END COMPONENT;
   
@@ -375,7 +375,7 @@ ARCHITECTURE rtl OF ts_core IS
       vga_vpos    : OUT uint12;
       vga_clk     : IN  std_logic;
       vga_en      : IN  std_logic;
-      vga_dis     : IN  std_logic;
+      vga_on      : IN  std_logic;
       pal_clk     : OUT std_logic;
       pal_d       : OUT uv24;
       pal_a       : OUT uv8;
@@ -431,7 +431,7 @@ ARCHITECTURE rtl OF ts_core IS
       stopa       : IN  std_logic;
       iboot       : IN  std_logic;
       clk         : IN  std_logic;
-      reset_na    : IN  std_logic);
+      reset_n     : IN  std_logic);
   END COMPONENT;
   
   --------------------------------------------
@@ -551,8 +551,8 @@ BEGIN
         debug_t  => debug0_t,
         irl      => irl0,
         intack   => intack0,
-        reset    => reset,
-        reset_na => reset_na,
+        reset    => preset,
+        reset_n  => reset_n,
         clk      => clk);
     
     i_fpu: fpu
@@ -561,8 +561,8 @@ BEGIN
       PORT MAP (
         i        => fpu0_i,
         o        => fpu0_o,
-        reset    => reset,
-        reset_na => reset_na,
+        reset    => preset,
+        reset_n  => reset_n,
         clk      => clk);
     
     -----------------------------------
@@ -583,8 +583,8 @@ BEGIN
         ext_r    => ext0_pr,
         cachena  => cachena,
         l2tlbena => l2tlbena,
-        reset    => reset,
-        reset_na => reset_na,
+        reset    => preset,
+        reset_n  => reset_n,
         clk      => clk);
 
     -----------------------------------
@@ -600,16 +600,16 @@ BEGIN
         dreset   => dreset,
         stopa    => debug_stopa,
         xstop    => xstop,
-        reset_na => reset_na,
+        reset_n  => reset_n,
         clk      => clk);
     
     --pragma synthesis_off
     ilog_inst:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST")
-      PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_n => reset_n);
     ilog_data:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA")
-      PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_n => reset_n);
 
 --pragma synthesis_on
 
@@ -630,7 +630,7 @@ BEGIN
         vo_w     => ext_vo_pw,
         vo_r     => ext_vo_pr,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     mux_vi_pw(0)<=memm_pw;
     mux_vi_pw(1)<=iommu_pw;
@@ -647,7 +647,7 @@ BEGIN
         o_w      => dram_pw,
         o_r      => dram_pr,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
   END GENERATE NOSMP;
   --###############################################################
@@ -671,8 +671,8 @@ BEGIN
           debug_t  => debug0_t,
           irl      => irl0,
           intack   => intack0,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
       i_mcu_mp0: ENTITY work.mcu_mp
@@ -703,8 +703,8 @@ BEGIN
           l2tlbena => l2tlbena,
           wback    => wback,
           aow      => aow,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
     END GENERATE iCPU0;
@@ -727,8 +727,8 @@ BEGIN
           debug_t  => debug1_t,
           irl      => irl1,
           intack   => intack1,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
       i_mcu_mp1: ENTITY work.mcu_mp
@@ -759,8 +759,8 @@ BEGIN
           l2tlbena => l2tlbena,
           wback    => wback,
           aow      => aow,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
     END GENERATE iCPU1;
@@ -783,8 +783,8 @@ BEGIN
           debug_t  => debug2_t,
           irl      => irl2,
           intack   => intack2,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
       i_mcu_mp2: ENTITY work.mcu_mp
@@ -815,8 +815,8 @@ BEGIN
           l2tlbena => l2tlbena,
           wback    => wback,
           aow      => aow,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
     END GENERATE iCPU2;
@@ -839,8 +839,8 @@ BEGIN
           debug_t  => debug3_t,
           irl      => irl3,
           intack   => intack3,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
       i_mcu_mp3: ENTITY work.mcu_mp
@@ -871,8 +871,8 @@ BEGIN
           l2tlbena => l2tlbena,
           wback    => wback,
           aow      => aow,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
     END GENERATE iCPU3;
@@ -896,8 +896,8 @@ BEGIN
           o2       => OPEN,
           i3       => FPU_MP_NOCPU,
           o3       => OPEN,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
 
       i_fpu_mp23: fpu_mp
@@ -913,8 +913,8 @@ BEGIN
           o2       => OPEN,
           i3       => FPU_MP_NOCPU,
           o3       => OPEN,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       
     END GENERATE GEN_FPU_MULTI;
@@ -926,8 +926,8 @@ BEGIN
         PORT MAP (
           i        => fpu0_i,
           o        => fpu0_o,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       i_fpu1: fpu
         GENERIC MAP (
@@ -935,8 +935,8 @@ BEGIN
         PORT MAP (
           i        => fpu1_i,
           o        => fpu1_o,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       i_fpu2: fpu
         GENERIC MAP (
@@ -944,8 +944,8 @@ BEGIN
         PORT MAP (
           i        => fpu2_i,
           o        => fpu2_o,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
       i_fpu3: fpu
         GENERIC MAP (
@@ -953,8 +953,8 @@ BEGIN
         PORT MAP (
           i        => fpu3_i,
           o        => fpu3_o,
-          reset    => reset,
-          reset_na => reset_na,
+          reset    => preset,
+          reset_n  => reset_n,
           clk      => clk);
     END GENERATE GEN_FPU_UNI;
     
@@ -1001,7 +1001,7 @@ BEGIN
         smp_r    => smp_r,
         mem_w    => smem_pw,
         mem_r    => smem_pr,
-        reset_na => reset_na,
+        reset_n  => reset_n,
         clk      => clk);
     
     ext_no<=sel_decodage_smp(mem_pw);
@@ -1021,7 +1021,7 @@ BEGIN
         vo_w     => ext_vo_pw,
         vo_r     => ext_vo_pr,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     i_iu_debug_mp: iu_debug_mp
       GENERIC MAP (
@@ -1045,7 +1045,7 @@ BEGIN
         dreset   => dreset,
         stopa    => debug_stopa,
         xstop    => xstop,
-        reset_na => reset_na,
+        reset_n  => reset_n,
         clk      => clk);
     
     -----------------------------------
@@ -1055,20 +1055,20 @@ BEGIN
     --pragma synthesis_off
     ilog_inst:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST0")
-      PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => inst0_pw, r => inst0_pr, clk => clk, reset_n  => reset_n);
     ilog_data:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA0")
-      PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => data0_pw, r => data0_pr, clk => clk, reset_n  => reset_n);
     ilog_inst2:ENTITY work.plomb_log
       GENERIC MAP (nom => "INST1")
-      PORT MAP (w => inst1_pw, r => inst1_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => inst1_pw, r => inst1_pr, clk => clk, reset_n  => reset_n);
     ilog_data2:ENTITY work.plomb_log
       GENERIC MAP (nom => "DATA1")
-      PORT MAP (w => data1_pw, r => data1_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => data1_pw, r => data1_pr, clk => clk, reset_n  => reset_n);
 
     ilog_mem:ENTITY work.plomb_log
       GENERIC MAP (nom => "MEM")
-      PORT MAP (w => mem_pw, r => mem_pr, clk => clk, reset_na => reset_na);
+      PORT MAP (w => mem_pw, r => mem_pr, clk => clk, reset_n  => reset_n);
     
     --pragma synthesis_on
 
@@ -1086,7 +1086,7 @@ BEGIN
     PORT MAP (
       sync     => sync_rs_hi,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
 
   RSCLK:PROCESS(clk)
   BEGIN
@@ -1128,7 +1128,7 @@ BEGIN
       obreak   => obreak,
       osel     => osel,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
 
   -----------------------------------
   i_idu: ENTITY work.idu
@@ -1141,7 +1141,7 @@ BEGIN
       rx_ack   => debug_rx_ack,
       dl_w     => dl_w,
       dl_r     => dl_r,
-      reset_na => reset_na,
+      reset_n  => reset_n,
       clk      => clk);
   
   -----------------------------------
@@ -1157,7 +1157,7 @@ BEGIN
       aux      => "0000000000",
       timecode => timecode,
       clk      => sclk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   scsi_w<=scsi_w_i;
   
@@ -1179,8 +1179,8 @@ BEGIN
                       mem_pr.dreq & inst0_pr.dreq & inst0_pr.ack;
   
   -----------------------------------
-  timecode<=x"00000000" WHEN reset_na='0' ELSE
-             mux(debug_stopa,timecode,timecode+1) WHEN rising_edge(clk);
+  timecode<=mux(reset_n,mux(debug_stopa,timecode,timecode+1),x"00000000")
+              WHEN rising_edge(clk);
   
   ------------------------------------------------------
   
@@ -1199,7 +1199,7 @@ BEGIN
         timecode => timecode,
         astart   => astart,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
 
     i_dl_plomb_trace2: ENTITY work.dl_plomb_trace
       GENERIC MAP (ADRS =>x"5",SIGS => 32,ENAH => false,PROF =>16)
@@ -1215,7 +1215,7 @@ BEGIN
         timecode => timecode,
         astart   => astart,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     PROCESS(mem_pw,cwb0,cwb1,sel0,sel1,hit0,hit1) IS
     BEGIN
@@ -1229,8 +1229,8 @@ BEGIN
       PORT MAP (
         dl_w     => dl_w,
         dl_r     => dl_r_t2,
-        pw       => inst1_pw, --io_pw, --iommu_pw, --iommu_pw, --ext_pw,
-        pr       => inst1_pr, --io_pr, --iommu_pr, --iommu_pr, --ext_pr,
+        pw       => ext0_pw, --inst1_pw, --io_pw, --iommu_pw, --iommu_pw, --ext_pw,
+        pr       => ext0_pr, --inst1_pr, --io_pr, --iommu_pr, --iommu_pr, --ext_pr,
         sig      => sigs(0 DOWNTO 1),
         trig     => trigs,
         trigo    => trigs(2),
@@ -1238,7 +1238,7 @@ BEGIN
         timecode => timecode,
         astart   => astart,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
     i_dl_plomb_trace4: ENTITY work.dl_plomb_trace  
       GENERIC MAP (ADRS =>x"7",SIGS => 0,ENAH => false,PROF =>16)
@@ -1254,7 +1254,7 @@ BEGIN
         timecode => timecode,
         astart   => astart,
         clk      => clk,
-        reset_na => reset_na);
+        reset_n  => reset_n);
     
   END GENERATE GenTrace;
 
@@ -1302,18 +1302,18 @@ BEGIN
       mem_w    => io_w,
       mem_r    => io_r,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   --pragma synthesis_off
   ilog_ext:ENTITY work.plomb_log
     GENERIC MAP (nom => "EXT")
-    PORT MAP (w => ext0_pw, r => ext0_pr, clk => clk, reset_na => reset_na);
+    PORT MAP (w => ext0_pw, r => ext0_pr, clk => clk, reset_n  => reset_n);
   ilog_io:ENTITY work.plomb_log
     GENERIC MAP (nom => "IO")
-    PORT MAP (w => io_pw, r => io_pr, clk => clk, reset_na => reset_na);
+    PORT MAP (w => io_pw, r => io_pr, clk => clk, reset_n  => reset_n);
   ilog_iommu:ENTITY work.plomb_log
     GENERIC MAP (nom => "IOMMU")
-    PORT MAP (w => iommu_pw, r => iommu_pr, clk => clk, reset_na => reset_na);
+    PORT MAP (w => iommu_pw, r => iommu_pr, clk => clk, reset_n  => reset_n);
   --pragma synthesis_on
   
   -----------------------------------
@@ -1361,7 +1361,7 @@ BEGIN
       vga_vpos    => vga_vpos,
       vga_clk     => vga_clk,
       vga_en      => vga_en,
-      vga_dis     => vga_dis,
+      vga_on      => vga_on,
       pal_clk     => pal_clk,
       pal_d       => pal_d,
       pal_a       => pal_a,
@@ -1417,7 +1417,7 @@ BEGIN
       stopa       => debug_stopa,
       iboot       => iboot,
       clk         => clk,
-      reset_na    => reset_na);
+      reset_n     => reset_n);
   
   -----------------------------------
   -- Activation 1/8

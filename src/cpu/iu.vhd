@@ -41,7 +41,7 @@ ENTITY iu IS
     intack   : OUT std_logic;           -- External Interrupt acknowledge
     reset    : IN  std_logic;           -- Reset synchrone
     
-    reset_na : IN std_logic;            -- Reset asynchrone
+    reset_n  : IN std_logic;            -- Reset
     clk      : IN std_logic             -- Horloge
     );
 END ENTITY iu;

@@ -43,7 +43,7 @@ ENTITY acia IS
     rx_ack   : IN  std_logic;        -- Acquittement donnee recue
     
     clk      : IN std_logic;
-    reset_na : IN std_logic);
+    reset_n  : IN std_logic);
 END ENTITY acia;
 
 -------------------------------------------------------------------------------
@@ -73,12 +73,9 @@ BEGIN
 
   -------------------------------------------------
   -- Générateur d'horloge, synthétiseur
-  ClockGen:PROCESS (clk, reset_na)
+  ClockGen:PROCESS (clk)
   BEGIN
-    IF reset_na = '0' THEN
-      sync16<='0';
-      cpt16<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       sync16<='0';
       IF sync='1' THEN
         IF cpt16/=15 THEN
@@ -88,22 +85,20 @@ BEGIN
           sync16<='1';
         END IF;
       END IF;
+
+      IF reset_n = '0' THEN
+        sync16<='0';
+        cpt16<=0;
+      END IF;
     END IF;
   END PROCESS ClockGen;
 
   -------------------------------------------------
   -- Emission
-  Emit:PROCESS (clk, reset_na)
+  Emit:PROCESS (clk)
     VARIABLE pop_v : std_logic;
   BEGIN
-    IF reset_na = '0' THEN
-      tx_cpt<=0;
-      tx_trans<='0';
-      tx_buf<="1111111111";
-      txd<='1';
-      tx_vv<='0';
-      tx_lev<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ---------------------------------------------
       IF sync16='1' THEN
         IF tx_trans='0' THEN
@@ -151,6 +146,14 @@ BEGIN
         END IF;
       END IF;
       ---------------------------------------------
+      IF reset_n = '0' THEN
+        tx_cpt<=0;
+        tx_trans<='0';
+        tx_buf<="1111111111";
+        txd<='1';
+        tx_vv<='0';
+        tx_lev<=0;
+      END IF;
     END IF;
   END PROCESS Emit;
 
@@ -160,18 +163,10 @@ BEGIN
   
   -------------------------------------------------
   -- Réception
-  Recept: PROCESS (clk, reset_na)
+  Recept: PROCESS (clk)
     VARIABLE push_v : std_logic;
   BEGIN
-    IF reset_na = '0' THEN
-      rx_trans<='0';
-      rx_phase<=0;
-      rx_cpt<=0;
-      rx_rad<=(OTHERS =>'0');
-      rx_vv<='0';
-      rx_lev<=0;
-      rx_brx<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       rx_break<='0';
       push_v:='0';
       rxd_sync<=rxd;
@@ -221,7 +216,17 @@ BEGIN
           rx_vv<='0';
         END IF;
       END IF;
+
       ---------------------------------------------      
+      IF reset_n = '0' THEN
+        rx_trans<='0';
+        rx_phase<=0;
+        rx_cpt<=0;
+        rx_rad<=(OTHERS =>'0');
+        rx_vv<='0';
+        rx_lev<=0;
+        rx_brx<='0';
+      END IF;
     END IF;
   END PROCESS Recept;
 

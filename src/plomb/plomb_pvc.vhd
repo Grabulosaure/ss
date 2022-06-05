@@ -38,7 +38,7 @@ ENTITY plomb_pvc IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY plomb_pvc;
 
@@ -53,11 +53,9 @@ ARCHITECTURE rtl OF plomb_pvc IS
   
 BEGIN
   
-  PROCESS(clk,reset_na) IS
+  PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      busy<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF bus_w.req='1' AND mem_r.ack='0' AND busy='0' THEN
         busy<='1';
         mem_cop.a <=bus_w.a;
@@ -69,6 +67,10 @@ BEGIN
         busy<='0';
       END IF;
       mem_cop.req<='1';
+
+      IF reset_n='0' THEN
+        busy<='0';
+      END IF;
     END IF;
   END PROCESS;
   
@@ -84,15 +86,10 @@ BEGIN
   bus_r.code<=PB_OK;
   bus_r.dreq<=retour OR vv;
   
-  SyncFIFO: PROCESS(clk, reset_na)
+  SyncFIFO: PROCESS(clk)
     VARIABLE push,pop : boolean;
   BEGIN
-    IF reset_na = '0' THEN
-      lev<=0;
-      vv<='0';
-      retour<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       push:=(retour='1');
       pop :=(bus_w.dack='1');
       IF push THEN
@@ -113,6 +110,12 @@ BEGIN
       
       retour<=mem_w_l.req AND mem_r.ack AND NOT mem_w_l.wr;
       
+      IF reset_n = '0' THEN
+        lev<=0;
+        vv<='0';
+        retour<='0';
+      END IF;      
+
     END IF;
   END PROCESS SyncFIFO;
   

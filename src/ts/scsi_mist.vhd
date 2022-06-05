@@ -50,7 +50,7 @@ ENTITY scsi_mist IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY scsi_mist;
 
@@ -707,7 +707,7 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Séquenceur
-  Sequenceur: PROCESS (clk,reset_na)
+  Sequenceur: PROCESS (clk,reset_n)
     VARIABLE vcmd : uv8;
     VARIABLE op_v  : enum_code;
     VARIABLE val_v : unsigned(9 DOWNTO 0);
@@ -717,13 +717,7 @@ BEGIN
     VARIABLE sel_v : std_logic;
     VARIABLE pc_v : natural RANGE 0 TO 1023;
   BEGIN
-    IF reset_na='0' THEN
-      scsi_r_i.req<='0';
-      nov<='0';
-      hd_rd_i<='0';
-      hd_wr_i<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -------------------------------------------      
       op_v :=code.op;  -- Opcode
       val_v:=code.val; -- Valeur immédiate
@@ -970,6 +964,14 @@ BEGIN
         hd_wr_i<='0';
         hd_rd_i<='0';
       END IF;
+
+      IF reset_n='0' THEN
+        scsi_r_i.req<='0';
+        nov<='0';
+        hd_rd_i<='0';
+        hd_wr_i<='0';
+      END IF;
+
     END IF;
   END PROCESS Sequenceur;
 

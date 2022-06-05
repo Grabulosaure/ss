@@ -77,7 +77,7 @@ ENTITY ts_tcx IS
     vga_vpos : OUT uint12;
     vga_clk  : IN  std_logic;
     vga_en   : IN  std_logic;
-    vga_dis  : IN  std_logic;
+    vga_on   : IN  std_logic;
     pal_clk  : OUT std_logic;
     pal_d    : OUT uv24;
     pal_a    : OUT uv8;
@@ -87,8 +87,8 @@ ENTITY ts_tcx IS
     int      : OUT std_logic;           -- CG3 Interrupt
     
     -- Global
-    clk      : IN  std_logic;
-    reset_na : IN  std_logic
+    clk     : IN  std_logic;
+    reset_n : IN  std_logic
     );
 END ENTITY ts_tcx;
 
@@ -96,47 +96,6 @@ END ENTITY ts_tcx;
 
 ARCHITECTURE rtl OF ts_tcx IS
 
-  COMPONENT vid
-    GENERIC (
-      BURSTLEN    : natural;
-      FIFO_SIZE   : natural;
-      FIFO_AEC    : natural;
-      ASI         : uv8 := ASI);
-    PORT (
-      pw       : OUT type_plomb_w;
-      pr       : IN  type_plomb_r;
-      adr      : IN  uv32;
-      adr_h    : IN  unsigned(3 DOWNTO 0);
-      run      : IN  std_logic;
-      mode     : IN  type_modeline;
-      conf     : IN  type_videoconf;
-      vga_r    : OUT uv8;
-      vga_g    : OUT uv8;
-      vga_b    : OUT uv8;
-      vga_de   : OUT std_logic;
-      vga_hsyn : OUT std_logic;
-      vga_vsyn : OUT std_logic;
-      vga_hpos : OUT uint12;
-      vga_vpos : OUT uint12;
-      vga_clk  : IN  std_logic;
-      vga_en   : IN  std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-  
-  COMPONENT plomb_mux IS
-    GENERIC (
-      NB       : uint8;
-      PROF     : uint8);
-    PORT (
-      vi_w     : IN  arr_plomb_w(0 TO NB-1);
-      vi_r     : OUT arr_plomb_r(0 TO NB-1);
-      o_w      : OUT type_plomb_w;
-      o_r      : IN  type_plomb_r;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT plomb_mux;
-  
   CONSTANT MODE  : type_modeline := MODELINE_1024_768_60Hz_65MHz;
   SIGNAL conf    : type_videoconf;
   
@@ -198,7 +157,7 @@ ARCHITECTURE rtl OF ts_tcx IS
   
 BEGIN
 
-  vga_run <=vga_ctrl(0) AND NOT vga_dis;
+  vga_run <=vga_ctrl(0) OR vga_on;
   conf.bpp<="011";
   conf.hf <='0'; 
   conf.col<='0';
@@ -206,17 +165,17 @@ BEGIN
   
   -------------------------------------------------------------
   Gen_ACCEL: IF TCX_ACCEL GENERATE
-    i_plomb_mux: plomb_mux
+    i_plomb_mux: ENTITY work.plomb_mux
       GENERIC MAP (
         NB        => 2,
         PROF      => 32)
       PORT MAP (
-        vi_w     => vi_w,
-        vi_r     => vi_r,
-        o_w      => pw,
-        o_r      => pr,
-        clk      => clk,
-        reset_na => reset_na);
+        vi_w    => vi_w,
+        vi_r    => vi_r,
+        o_w     => pw,
+        o_r     => pr,
+        clk     => clk,
+        reset_n => reset_n);
 
     vi_w(0)<=vid_pw;
     vi_w(1)<=acc_pw;
@@ -229,11 +188,12 @@ BEGIN
     vid_pr<=pr;
   END GENERATE Gen_NoACCEL;
   
-  i_vid: vid
+  i_vid: ENTITY work.vid
     GENERIC MAP (
       BURSTLEN    => 8,
       FIFO_SIZE   => 128,
-      FIFO_AEC    => 16)
+      FIFO_AEC    => 16,
+      ASI         => ASI)
       --BURSTLEN    => 8,
       --FIFO_SIZE   => 64,
       --FIFO_AEC    => 15)
@@ -259,22 +219,20 @@ BEGIN
       vga_clk  => vga_clk,
       vga_en   => vga_en,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
   -------------------------------------------------------------
-  Delai:PROCESS (vga_clk,reset_na) IS
+  Delai:PROCESS (vga_clk) IS
     VARIABLE a : uint8;
   BEGIN
-    IF reset_na='0' THEN
-      vga_hsyn<='0';                    -- <Async> Reset, bof
-      vga_vsyn<='0';
-    ELSIF rising_edge(vga_clk) THEN
+    IF rising_edge(vga_clk) THEN
       vga_hsyn<=vid_hsyn AND vga_run;
       vga_vsyn<=vid_vsyn AND vga_run;
       vga_de  <=vid_de   AND vga_run;
       vga_hpos<=vid_hpos;
       vga_vpos<=vid_vpos;
     END IF;
+
   END PROCESS Delai;
   
   -------------------------------------------------------------  
@@ -329,13 +287,9 @@ BEGIN
   pal_d  <=palrgb_wr;
   
   -------------------------------------------------------------
-  Regs: PROCESS (clk,reset_na)
+  Regs: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      palidx<=0;
-      palw<='0';
-      palcyc<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       palw<='0';
       dr<=x"00000000";
       cg3_clrint<='0';
@@ -472,7 +426,14 @@ BEGIN
       -------------------------------------------------------------
       cg3_int<=((cg3_int OR cg3_setint) AND NOT cg3_clrint)
                 AND cg3 AND cg3_ctrl(7);
-      
+
+      -------------------------------------------------------------
+      IF reset_n='0' THEN
+        palidx<=0;
+        palw<='0';
+        palcyc<=0;
+      END IF;
+      -------------------------------------------------------------
     END IF;
   END PROCESS Regs;
 
@@ -499,7 +460,7 @@ BEGIN
   -- Accélérateur
   GenAccelProcess: IF TCX_ACCEL GENERATE
   
-  Accel:PROCESS (clk,reset_na) IS
+  Accel:PROCESS (clk) IS
     VARIABLE fsrc_v,fdst_v : unsigned(5 DOWNTO 0);
     VARIABLE deca_v : unsigned(1 DOWNTO 0);
     VARIABLE shift_v,push_v : std_logic;
@@ -510,12 +471,7 @@ BEGIN
     VARIABLE wr_act_v,wr_deb_v,wr_fin_v : std_logic;
     VARIABLE ibourre_v : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      acc_pw.req<='0';
-      acc_pw.dack<='1';
-      acc_pw.cache<='0';
-      acc_pw.lock<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
 
       -- Adresses de fin
       fsrc_v:=('0' & acc_src(4 DOWNTO 0))+acc_len;
@@ -788,7 +744,16 @@ BEGIN
       ELSE
         acc_pw.be<="1111";
       END IF;
-      
+
+      -----------------------------------------------------
+      IF reset_n='0' THEN
+        acc_pw.req<='0';
+        acc_pw.dack<='1';
+        acc_pw.cache<='0';
+        acc_pw.lock<='0';
+        acc_etat<=sOISIF;
+      END IF;
+      -----------------------------------------------------
     END IF;
   END PROCESS Accel;
   

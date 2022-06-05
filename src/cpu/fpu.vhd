@@ -37,7 +37,7 @@ ENTITY  fpu IS
     
     -- Général
     reset    : IN std_logic;             -- Reset synchrone   
-    reset_na : IN std_logic;             -- Reset asynchrone
+    reset_n  : IN std_logic;             -- Reset
     clk      : IN std_logic              -- Horloge
     
     ---- Exéxution instructions FPU OP

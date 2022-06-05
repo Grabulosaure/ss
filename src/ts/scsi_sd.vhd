@@ -53,7 +53,7 @@ ENTITY scsi_sd IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY scsi_sd;
 
@@ -762,7 +762,7 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Séquenceur
-  Sequenceur: PROCESS (clk,reset_na)
+  Sequenceur: PROCESS (clk)
     VARIABLE vcmd : uv8;
     VARIABLE op_v  : enum_code;
     VARIABLE val_v : unsigned(9 DOWNTO 0);
@@ -772,14 +772,7 @@ BEGIN
     VARIABLE sel_v : std_logic;
     VARIABLE pc_v : natural RANGE 0 TO 1023;
   BEGIN
-    IF reset_na='0' THEN
-      scsi_r_i.req<='0';
-      nov<='0';
-      dsd_req_stop<='0';
-      dsd_req_rd<='0';
-      dsd_req_wr<='0';
-
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -------------------------------------------      
       op_v :=code.op;  -- Opcode
       val_v:=code.val; -- Valeur immédiate
@@ -1021,6 +1014,14 @@ BEGIN
 
       busy<=NOT to_std_logic(pc=6);   -- lab_debut
       
+      IF reset_n='0' THEN
+        scsi_r_i.req<='0';
+        nov<='0';
+        dsd_req_stop<='0';
+        dsd_req_rd<='0';
+        dsd_req_wr<='0';
+      END IF;
+
     END IF;
   END PROCESS Sequenceur;
 
@@ -1067,19 +1068,9 @@ BEGIN
   -- SCSI : "READ CAPACITY" : N° last sector
 
   -----------------------------------------
-  SDreg: PROCESS (clk,reset_na) IS
+  SDreg: PROCESS (clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      rsd_reset<='1';
-      rsd_disk<='0';
-      sdcpt<=0;
-      rsd_pulse_mem<='0';
-      rsd_pulse_mem2<='0';
-      rsd_cont_mem<='0';
-      rsd_clk<='0';
-      sd_tik<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -----------------------------------------
       -- Horloges
       IF rsd_freq(0)='1' THEN
@@ -1156,6 +1147,18 @@ BEGIN
         capacity_m<=reg_w.d;
       END IF;
       
+      -----------------------------------------
+      IF reset_n='0' THEN
+        rsd_reset<='1';
+        rsd_disk<='0';
+        sdcpt<=0;
+        rsd_pulse_mem<='0';
+        rsd_pulse_mem2<='0';
+        rsd_cont_mem<='0';
+        rsd_clk<='0';
+        sd_tik<='0';
+      END IF;
+
     END IF;
   END PROCESS SDreg;
 
@@ -1179,7 +1182,7 @@ BEGIN
   sd_clk_o<=sd_clk;
   
   -- Automate commandes lectures/ecritures SD/MMC
-  SDcommand: PROCESS (clk,reset_na) IS
+  SDcommand: PROCESS (clk) IS
     VARIABLE d4_v : uv4;
 
     --------------------------------------------
@@ -1227,13 +1230,7 @@ BEGIN
     VARIABLE push_v,pop_v,flush_v : std_logic;
     --------------------------------------------
   BEGIN
-    IF reset_na='0' THEN
-      dsd_fifo_lev<=0;
-      dsd_fifo_lv<='0';
-      dsd_req_stop_mem<='0';
-      dsd_req_rd_mem<='0';
-      dsd_req_wr_mem<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       prim_v:=(dsd_cmd_etat/=dsd_cmd_etat_pre);
       
       dsd_fin<='0';
@@ -1584,6 +1581,13 @@ BEGIN
         dsd_fifo_lev<=0;
       END IF;
       
+      IF reset_n='0' THEN
+        dsd_fifo_lev<=0;
+        dsd_fifo_lv<='0';
+        dsd_req_stop_mem<='0';
+        dsd_req_rd_mem<='0';
+        dsd_req_wr_mem<='0';
+      END IF;
     END IF;
   END PROCESS SDcommand;
 

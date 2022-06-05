@@ -73,7 +73,7 @@ ENTITY  fpu_calc IS
     unf      : OUT std_logic;            -- Unfinished FPop : Denormals
     
     -- Général
-    reset_na : IN std_logic;
+    reset_n  : IN std_logic;
     clk      : IN std_logic
     );
 END ENTITY fpu_calc;
@@ -83,42 +83,6 @@ ARCHITECTURE rtl OF fpu_calc IS
 
   CONSTANT SSTALL : boolean :=true; -- Synchronous STALL, no comb. path with input
   
-  COMPONENT fpu_mul
-    GENERIC (
-      TECH : natural);
-    PORT (
-      mul_sd      : IN  std_logic;
-      mul_flush   : IN  std_logic;
-      mul_start   : IN  std_logic;
-      mul_end     : OUT std_logic;
-      mul_busy    : OUT std_logic;
-      mul_stall   : OUT std_logic;
-      mul_fs1_man : IN  unsigned(53 DOWNTO 0);
-      mul_fs2_man : IN  unsigned(52 DOWNTO 0);
-      mul_fs_man  : OUT unsigned(54 DOWNTO 0);
-      mul_inx     : OUT std_logic;
-      reset_na    : IN  std_logic;
-      clk         : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT fpu_div
-    GENERIC (
-      TECH : natural);
-    PORT (
-      div_sd      : IN  std_logic;
-      div_dr      : IN  std_logic;
-      div_flush   : IN  std_logic;
-      div_start   : IN  std_logic;
-      div_end     : OUT std_logic;
-      div_busy    : OUT std_logic;
-      div_fs1_man : IN  unsigned(53 DOWNTO 0);
-      div_fs2_man : IN  unsigned(52 DOWNTO 0);
-      div_fs_man  : OUT unsigned(54 DOWNTO 0);
-      div_inx     : OUT std_logic;
-      reset_na    : IN  std_logic;
-      clk         : IN  std_logic);
-  END COMPONENT;
-
   CONSTANT ZERO : unsigned(63 DOWNTO 0) := x"00000000_00000000";
 
   SIGNAL fd_i_c  : uv64;
@@ -238,11 +202,9 @@ BEGIN
 
   idle<=NOT (c1.v OR c2.v OR c3.v OR c4.v);
   
-  CalcM:PROCESS(clk,reset_na) IS
+  CalcM:PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      c1.v<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF req='1' AND (NOT c1.v OR as2_c)='1' THEN
         c1.fop<=fop;
         c1.sdi<=sdi;
@@ -252,7 +214,7 @@ BEGIN
       ELSIF as1_c='1' THEN
         c1.v<='0';
       END IF;
-      IF flush='1' THEN
+      IF flush='1' OR reset_n='0' THEN
         c1.v<='0';
       END IF;
     END IF;
@@ -262,7 +224,7 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Etage 1 : Prénormalisation, alignements
-  Seq1:PROCESS (clk,reset_na) IS
+  Seq1:PROCESS (clk) IS
     VARIABLE fhi_man_v,flo_man_v : unsigned(55 DOWNTO 0);
     VARIABLE fhi_s_v,flo_s_v : std_logic;
     VARIABLE expo_asc_v: unsigned(10 DOWNTO 0);
@@ -280,11 +242,7 @@ BEGIN
     VARIABLE rdy_v : std_logic;
     VARIABLE cx_v : type_fpipe;
   BEGIN
-    IF reset_na='0' THEN
-      c2.v<='0';
-      c2_rdy<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       rdy_v:='0';
       
       asc_mds_1(fs1_man0_v,fs2_man0_v,
@@ -449,13 +407,16 @@ BEGIN
       IF flush='1' THEN
         c2.v<='0';
       END IF;
-
+      IF reset_n='0' THEN
+        c2.v<='0';
+        c2_rdy<='0';
+      END IF;
     END IF;
   END PROCESS Seq1;
   
   ------------------------------------------------------------------------------
   -- Etage 2 : Calculs : ADD / SUB
-  Seq2:PROCESS (clk,reset_na) IS
+  Seq2:PROCESS (clk) IS
     -- ADD
     VARIABLE addsub_v : unsigned(56 DOWNTO 0);
     VARIABLE nz_v : natural RANGE 0 TO 63;
@@ -463,9 +424,7 @@ BEGIN
     VARIABLE nxf_v,nvf_v : std_logic;
     
   BEGIN
-    IF reset_na='0' THEN
-      c3.v<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -----------------------------------------------------------------------
       IF as3_c='1' THEN
         c3<=c2;
@@ -502,12 +461,12 @@ BEGIN
 
       END IF;
 
-      IF flush='1' THEN
+      IF flush='1' OR reset_n='0' THEN
         c3.v<='0';
       END IF;
 
       c3_rdy<=(c3_rdy OR c3_rdy_c) AND NOT as3_c;
-      
+
     END IF;
   END PROCESS Seq2;
   
@@ -522,7 +481,7 @@ BEGIN
 
   c2_rdymd<=c2_rdy AND NOT mul_stall;
   
-  i_fpu_mul: fpu_mul
+  i_fpu_mul: ENTITY work.fpu_mul
     GENERIC MAP (
       TECH        => TECH)
     PORT MAP (
@@ -536,10 +495,10 @@ BEGIN
       mul_fs2_man => c2_mds_fs2_man,
       mul_fs_man  => mul_fs_man,
       mul_inx     => mul_inx,
-      reset_na    => reset_na,
+      reset_n     => reset_n,
       clk         => clk);
   
-  i_fpu_div: fpu_div
+  i_fpu_div: ENTITY work.fpu_div
     GENERIC MAP (
       TECH        => TECH)
     PORT MAP (
@@ -553,7 +512,7 @@ BEGIN
       div_fs2_man => c2_mds_fs2_man,
       div_fs_man  => div_fs_man,
       div_inx     => div_inx,
-      reset_na    => reset_na,
+      reset_n     => reset_n,
       clk         => clk);
   
   Comb2_MulDiv:PROCESS (mul_fs_man,mul_inx,div_fs_man,div_inx,
@@ -596,7 +555,7 @@ BEGIN
   
   ------------------------------------------------------------------------------
   -- Etage 3 : Réalignements, arrondis
-  Seq3:PROCESS (clk,reset_na) IS
+  Seq3:PROCESS (clk) IS
     VARIABLE fcc_v : unsigned(1 DOWNTO 0);
     VARIABLE asc_fs_man_v,mds_fs_man_v : unsigned(53 DOWNTO 0);
     VARIABLE asc_expo_v : unsigned(10 DOWNTO 0);
@@ -608,9 +567,7 @@ BEGIN
     VARIABLE mds_deno_v : boolean;
     VARIABLE cx_v : type_fpipe;
   BEGIN
-    IF reset_na='0' THEN
-      c4.v<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF as4_c='1' THEN
         cx_v:=c3;
       ELSE
@@ -729,6 +686,9 @@ BEGIN
       IF flush='1' THEN
         c4.v<='0';
         c4_rdy<='1';
+      END IF;
+      IF reset_n='0' THEN
+        c4.v<='0';
       END IF;
     END IF;
   END PROCESS Seq3;

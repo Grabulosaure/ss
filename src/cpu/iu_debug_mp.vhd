@@ -95,7 +95,7 @@ ENTITY iu_debug_mp IS
     xstop   : IN  std_logic;
 
     -- Glo
-    reset_na : IN  std_logic;            -- Reset asynchrone
+    reset_n  : IN  std_logic;            -- Reset
     clk      : IN  std_logic             -- Horloge
     );
 END ENTITY iu_debug_mp;
@@ -138,20 +138,9 @@ ARCHITECTURE rtl OF iu_debug_mp IS
 BEGIN
   
   ------------------------------------------------------------------------------
-  Coccinelle:PROCESS (clk,reset_na) IS
+  Coccinelle:PROCESS (clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      control<=x"00000000";
-      control_mem<=x"00000000";
-      controlx<=(x"00",x"00",x"00",x"00");
-      controlx_mem<=(x"00",x"00",x"00",x"00");
-      stop<="0000";
-      run <="0000";
-      dreset<='0';
-      dreset_pre2<='0';
-      dreset_pre<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       --------------------------------------
       vazy<='0';
       dl_r.rd<='0';
@@ -238,8 +227,19 @@ BEGIN
       dreset_pre2<=control(2);
       dreset_pre <=dreset_pre2;
       dreset     <=dreset_pre;
-    END IF;
 
+      IF reset_n='0' THEN
+        control<=x"00000000";
+        control_mem<=x"00000000";
+        controlx<=(x"00",x"00",x"00",x"00");
+        controlx_mem<=(x"00",x"00",x"00",x"00");
+        stop<="0000";
+        run <="0000";
+        dreset<='0';
+        dreset_pre2<='0';
+        dreset_pre<='0';
+      END IF;
+    END IF;
   END PROCESS Coccinelle;
 
   debug_s<=debug1_s WHEN sel="01" AND CPU1 ELSE

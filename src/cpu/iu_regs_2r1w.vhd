@@ -30,9 +30,7 @@ ENTITY iu_regs_2r1w IS
     rs2      : OUT uv32;
     n_rd     : IN  natural RANGE 0 TO NREGS-1;
     rd       : IN  uv32;
-    rd_maj   : IN  std_logic;   
-    
-    reset_na : IN  std_logic;
+    rd_maj   : IN  std_logic;
     clk      : IN  std_logic
     );
 END ENTITY iu_regs_2r1w;

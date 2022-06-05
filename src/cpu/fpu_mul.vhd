@@ -42,7 +42,7 @@ ENTITY  fpu_mul IS
     mul_fs2_man : IN  unsigned(52 DOWNTO 0);
     mul_fs_man  : OUT unsigned(54 DOWNTO 0);
     mul_inx     : OUT std_logic;
-    reset_na    : IN std_logic;            -- Reset asynchrone
+    reset_n    : IN std_logic;            -- Reset asynchrone
     clk         : IN std_logic             -- Horloge
     );
 END ENTITY fpu_mul;
@@ -88,7 +88,7 @@ BEGIN
     mul_stall<=mul_sd AND mul_start;
     mul_busy <=mul_bsy;
 
-    CalcMul:PROCESS (clk,reset_na) IS
+    CalcMul:PROCESS (clk,reset_n) IS
       VARIABLE a,b : unsigned(52 DOWNTO 0);
       VARIABLE ah,am,al,bh,bm,bl : unsigned(16 DOWNTO 0);
       VARIABLE ax,bx             : unsigned(1 DOWNTO 0);
@@ -103,7 +103,7 @@ BEGIN
       VARIABLE b_hl,a_hl : unsigned(16 DOWNTO 0);
       VARIABLE a_x,b_x : unsigned(1 DOWNTO 0);
     BEGIN
-      IF reset_na='0' THEN
+      IF reset_n='0' THEN
         mul_bsy<='0';
         mul_end<='0';
       ELSIF rising_edge(clk) THEN
@@ -210,12 +210,12 @@ BEGIN
     mul_stall<='0';
     mul_busy <='0';
     
-    CalcMul:PROCESS (clk,reset_na) IS
+    CalcMul:PROCESS (clk,reset_n) IS
       VARIABLE fs1,fs2 : unsigned(52 DOWNTO 0);
       VARIABLE mul : unsigned(105 DOWNTO 0);
       VARIABLE ZZ : unsigned(63 DOWNTO 0) :=(OTHERS =>'0');
     BEGIN
-      IF reset_na='0' THEN
+      IF reset_n='0' THEN
         mul_end<='0';
       ELSIF rising_edge(clk) THEN
         mul_end<=mul_start;

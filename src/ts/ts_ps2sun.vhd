@@ -51,50 +51,14 @@ ENTITY ts_ps2sun IS
     do2_rdy  : OUT std_logic;
     
     -- Global
-    clk         : IN  std_logic;
-    reset_na    : IN  std_logic
+    clk        : IN  std_logic;
+    reset_n    : IN  std_logic
     );
 END ENTITY ts_ps2sun;
 
 --##############################################################################
 
 ARCHITECTURE rtl OF ts_ps2sun IS
-
-  COMPONENT ps2 IS
-    GENERIC (
-      SYSFREQ : natural);
-    PORT (
-      di       : IN  std_logic;
-      do       : OUT std_logic;
-      cki      : IN  std_logic;
-      cko      : OUT std_logic;
-      tx_data  : IN  uv8;
-      tx_req   : IN  std_logic;
-      tx_ack   : OUT std_logic;
-      rx_data  : OUT uv8;
-      rx_err   : OUT std_logic;
-      rx_val   : OUT std_logic;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
-
-  COMPONENT ts_sunkb IS
-    PORT (
-      si_data  : OUT uv8;
-      si_req   : OUT std_logic;
-      si_rdy   : IN  std_logic;
-      so_data  : IN  uv8;
-      so_req   : IN  std_logic;
-      so_rdy   : OUT std_logic;
-      kb_data  : IN  uv8;
-      kb_req   : IN  std_logic;
-      kb_rdy   : OUT std_logic;
-      leds     : OUT uv4;
-      ledsm    : OUT std_logic;
-      layout   : IN  uv8;
-      clk      : IN  std_logic;
-      reset_na : IN  std_logic);
-  END COMPONENT;
   
   -----------------------------------------------
   CONSTANT ZZ : uv8 := x"00";
@@ -670,7 +634,7 @@ BEGIN
   -- KBD
   -- 0 : PS2 : KBD DATA
   -- 1 : PS2 : KBD CLK
-  i_ps2_kbd: ps2
+  i_ps2_kbd: ENTITY work.ps2
     GENERIC MAP (
       SYSFREQ => SYSFREQ)
     PORT MAP (
@@ -685,9 +649,9 @@ BEGIN
       rx_err   => k_rx_err,
       rx_val   => k_rx_val,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
-  i_ts_sunkb: ts_sunkb
+  i_ts_sunkb: ENTITY work.ts_sunkb
     PORT MAP (
       si_data  => di1_data,
       si_req   => di1_req,
@@ -702,18 +666,13 @@ BEGIN
       ledsm    => ledsm,
       layout   => kbm_layout,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
   
-  KBDConv: PROCESS (clk,reset_na)
+  KBDConv: PROCESS (clk)
     VARIABLE dd_v,do : uv8;
     VARIABLE do_w,di_r : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      k_lev<=0;
-      k_vv<='0';
-      k_stat<=sOISIF;
-      k_tx_req<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       
       -------------------------------------------
       IF ledsm='1' THEN
@@ -822,6 +781,14 @@ BEGIN
           k_vv<='0';
         END IF;
       END IF;
+
+      ------------------------------------------
+      IF reset_n='0' THEN
+        k_lev<=0;
+        k_vv<='0';
+        k_stat<=sOISIF;
+        k_tx_req<='0';
+      END IF;
     END IF;
   END PROCESS KBDConv;
   
@@ -830,7 +797,7 @@ BEGIN
   
   -- 2 : PS2 : Mouse DATA
   -- 3 : PS2 : Mouse CLK
-  i_ps2_mou: ps2
+  i_ps2_mou: ENTITY work.ps2
     GENERIC MAP (
       SYSFREQ => SYSFREQ)
     PORT MAP (
@@ -845,21 +812,17 @@ BEGIN
       rx_err   => m_rx_err,
       rx_val   => m_rx_val,
       clk      => clk,
-      reset_na => reset_na);
+      reset_n  => reset_n);
 
   m_tx_req<='0';
   
   -----------------------------------------------
   
-  MOUConv: PROCESS (clk,reset_na)
+  MOUConv: PROCESS (clk)
     VARIABLE dd_v,do : uv8;
     VARIABLE di_r : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      m_lev<=0;
-      m_vv<='0';
-      m_stat<=sOISIF;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       m_vv2<=m_vv;
       mfid<=m_fifo_d(m_lev);
       
@@ -936,6 +899,14 @@ BEGIN
           m_vv<='0';
         END IF;
       END IF;
+
+      ------------------------------------------
+      IF reset_n='0' THEN
+        m_lev<=0;
+        m_vv<='0';
+        m_stat<=sOISIF;
+      END IF;
+
     END IF;
   END PROCESS MOUConv;
   

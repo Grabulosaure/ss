@@ -36,7 +36,7 @@ ENTITY iram_ts IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY iram_ts;
 

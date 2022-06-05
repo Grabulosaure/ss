@@ -31,7 +31,6 @@ ENTITY iram IS
     mem_r : OUT type_pvc_r;
     
     -- Global
-    clk      : IN std_logic;
-    reset_na : IN std_logic
+    clk      : IN std_logic
     );
 END ENTITY iram;

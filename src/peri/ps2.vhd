@@ -35,7 +35,7 @@ ENTITY ps2 IS
     rx_val   : OUT std_logic;        -- Buffer Réception plein
     
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 
 END ENTITY ps2;
@@ -70,12 +70,9 @@ ARCHITECTURE rtl OF ps2 IS
   
 BEGIN
 
-  Machine: PROCESS (clk,reset_na)
+  Machine: PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      ckis<='0';
-      etat<=sOISIF;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -- Antirebond
       cki_sync<=cki;
       cki_sync2<=cki_sync;
@@ -180,6 +177,10 @@ BEGIN
         timout<=timout+1;
       END IF;
       
+      IF reset_n='0' THEN
+        ckis<='0';
+        etat<=sOISIF;
+      END IF;
     END IF;
   END PROCESS Machine;
   

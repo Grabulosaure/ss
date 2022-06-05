@@ -104,7 +104,7 @@ ENTITY mcu_multi_ext IS
     
     -----------------------------------
     clk      : IN  std_logic;
-    reset_na : IN  std_logic
+    reset_n  : IN  std_logic
     );
 END ENTITY;
 
@@ -216,13 +216,9 @@ BEGIN
     END IF;
   END PROCESS Carl;
   
-  Turlusiphon:PROCESS (clk, reset_na)
+  Turlusiphon:PROCESS (clk)
   BEGIN
-    IF reset_na='0' THEN
-      inst_ext_reqm<='0';
-      data_ext_reqm<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF inst_ext_reqm='0' THEN
         inst_ext_mem<=inst_ext_c;
       END IF;
@@ -241,7 +237,11 @@ BEGIN
       ELSIF inst_ext_req_c='1' AND pop_inst_c='0' THEN
         inst_ext_reqm<='1';
       END IF;
-      
+    
+      IF reset_n='0' THEN
+        inst_ext_reqm<='0';
+        data_ext_reqm<='0';
+      END IF; 
     END IF;
   END PROCESS Turlusiphon;
   
@@ -261,18 +261,13 @@ BEGIN
   --###############################################################
   -- Requètes "SMP"
   
-  SyncSMP:PROCESS(clk,reset_na) IS
+  SyncSMP:PROCESS(clk) IS
     VARIABLE acc_v : type_ext;
     VARIABLE new_v : boolean;
     VARIABLE dit_v : enum_dit;
     
   BEGIN
-    IF reset_na='0' THEN
-      ext_lock<=OFF;
-      smp_w_l.req<='0';
-      smp_w_l.busy<='0';
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF done_c='1' THEN
         smp_w_l.req<='0';
         smp_w_l.busy<='0';
@@ -326,6 +321,13 @@ BEGIN
         smp_w_l.lock<='0';
         ext_acc.pw.lock<='0';
       END IF;
+
+      IF reset_n='0' THEN
+        ext_lock<=OFF;
+        smp_w_l.req<='0';
+        smp_w_l.busy<='0';
+      END IF;      
+
     END IF;
   END PROCESS;
   
@@ -848,15 +850,11 @@ BEGIN
   ext_dr<=ext_dr_l;
   
   ---------------------------------------------------------
-  Seq:PROCESS (clk,reset_na) IS
+  Seq:PROCESS (clk) IS
     VARIABLE rd_fifo_pop_v : std_logic;
     
   BEGIN
-    IF reset_na='0' THEN
-      rd_fifo_lev<=0;
-      state<=sIDLE;
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ----------------------------------------------
       state<=state_c;
       ext_w_l<=ext_w_c;
@@ -965,8 +963,13 @@ BEGIN
           rd_fifo<=rd_fifo_dw_c;
         END IF;
       END IF;
+
       -------------------------------------------------
-      
+      IF reset_n='0' THEN
+        rd_fifo_lev<=0;
+        state<=sIDLE;
+      END IF;        
+
     END IF;
   END PROCESS;
   

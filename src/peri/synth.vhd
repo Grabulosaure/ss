@@ -28,7 +28,7 @@ ENTITY synth IS
     sync     : OUT std_logic;
     
     clk      : IN std_logic;
-    reset_na : IN std_logic);
+    reset_n  : IN std_logic);
 END ENTITY synth;
 
 -------------------------------------------------------------------------------
@@ -52,17 +52,19 @@ ARCHITECTURE rtl OF synth IS
 BEGIN
 
   -------------------------------------------------
-  ClockGen:PROCESS (clk, reset_na)
+  ClockGen:PROCESS (clk)
   BEGIN
-    IF reset_na = '0' THEN
-      sync<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       IF acc>0 THEN
         acc<=acc-MUL;
         sync<='0';
       ELSE
         acc<=acc+DIV-MUL;
         sync<='1';
+      END IF;
+      
+      IF reset_n = '0' THEN
+        sync<='0';
       END IF;
     END IF;
   END PROCESS ClockGen;

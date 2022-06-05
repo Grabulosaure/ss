@@ -40,8 +40,8 @@ ENTITY ts_rtc IS
     rtcset  : IN std_logic;
     
     -- Global
-    clk      : IN std_logic;
-    reset_na : IN std_logic
+    clk     : IN std_logic;
+    reset_n : IN std_logic
     );
 END ENTITY ts_rtc;
 
@@ -113,14 +113,10 @@ BEGIN
     END IF;
   END PROCESS Sync_PPS;
 
-  Sync_HTR: PROCESS (clk,reset_na)
+  Sync_HTR: PROCESS (clk)
     VARIABLE s_x,i_x,h_x,j_x,d_x,m_x,y_x : boolean;
   BEGIN
-    IF reset_na='0' THEN
-      cr<='0';
-      cw<='0';
-      st<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       ------------------------------------------
       s_x:=(cpt_s=x"59"); -- seconde
       i_x:=(cpt_i=x"59"); -- minute
@@ -255,6 +251,12 @@ BEGIN
         mem_h<=rtcinit(13 DOWNTO  8); -- Hour
         mem_s<=rtcinit( 6 DOWNTO  0); -- Sec
       END IF;
+
+      IF reset_n='0' THEN
+        cr<='0';
+        cw<='0';
+        st<='0';
+      END IF;
     END IF;
   END PROCESS Sync_HTR;
   
@@ -269,7 +271,7 @@ BEGIN
       mem_w => m_w,
       mem_r => m_r,
       clk   => clk,
-      reset_na => reset_na);
+      reset_n => reset_n);
   
   R_Gen:PROCESS(w,m_r,cw,cr,st,
                 mem_s,mem_i,mem_h,mem_j,mem_d,mem_m,mem_y,a_delay,sel)

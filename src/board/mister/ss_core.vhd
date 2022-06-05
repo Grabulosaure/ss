@@ -31,11 +31,8 @@ ENTITY ss_core IS
     clk_50m          : IN    std_logic;
     clk_sys          : OUT   std_logic;
     
-    -- Async reset from top-level module.
-    -- Can be used as initial reset.
     reset            : IN    std_logic;
-    resets           : IN    std_logic;
-
+    
     -- VGA
     vga_r            : OUT   uv8;
     vga_g            : OUT   uv8;
@@ -92,7 +89,7 @@ ENTITY ss_core IS
     cachena              : IN    std_logic;
     l2tlbena             : IN    std_logic;
     
-    vga_dis              : IN    std_logic;
+    vga_on               : IN    std_logic;
     scsi_conf            : IN    unsigned(2 DOWNTO 0);
     scsi_cdconf          : IN    unsigned(1 DOWNTO 0);
     tcx                  : IN    std_logic; -- 0=CG3    1=TCX
@@ -168,17 +165,14 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL flash_r,ibram_r : type_pvc_r;
   SIGNAL rxd1,rxd2,rxd3,rxd4,cts : std_logic;
   SIGNAL txd1,txd2,txd3,txd4,rts : std_logic;
-  SIGNAL preset,resetz : std_logic :='1';
+  SIGNAL preset : std_logic :='1';
+  SIGNAL presets : unsigned(4 DOWNTO 0);
   SIGNAL halt : std_logic :='0';
-  SIGNAL postdownload : std_logic :='0';
-  SIGNAL resetx,presetx : unsigned(0 TO 7) :=x"00";
-  SIGNAL reset_na,preset_na : std_logic :='0';
-  SIGNAL ioctl_cpt : uint8;
-  SIGNAL preset_delay : unsigned(3 DOWNTO 0);
-  SIGNAL reset_cpt : uint7;
+  SIGNAL reset_n : std_logic :='0';
+  SIGNAL ureset,ureset2,ureset3 : std_logic;
+  SIGNAL idown,idown2,idown3,xdown : std_logic;
   
-  TYPE enum_state IS (sRESET,sRESET2,sRESET3,sIDLE,sWAIT,
-                      sCLR,sGAP,sDOWNLOAD);
+  TYPE enum_state IS (sWAIT,sCLR,sGAP,sRUN,sDOWNLOAD);
   SIGNAL state : enum_state;
   
   SIGNAL ps2_i,ps2_o : uv4;
@@ -240,7 +234,8 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL scsimux : enum_scsimux;
   SIGNAL cptwait : uint6;
   
-  SIGNAL ioctl_download2,ioctl_wr2 : std_logic;
+  SIGNAL ioctl_wr2 : std_logic;
+  SIGNAL ioctl_download2 : std_logic;
   
   SIGNAL rtc_delay : std_logic;
   SIGNAL dreset : std_logic;
@@ -314,7 +309,7 @@ BEGIN
       vga_vsyn    => vga_vs,
       vga_clk     => clk65m,
       vga_en      => vga_en,
-      vga_dis     => vga_dis,
+      vga_on      => vga_on,
       pal_clk     => fb_pal_clk,
       pal_d       => fb_pal_d,
       pal_a       => fb_pal_a,
@@ -367,8 +362,8 @@ BEGIN
       rts         => rts,
       ps2_i       => ps2_i,
       ps2_o       => ps2_o,
-      reset       => preset,
-      reset_na    => reset_na,
+      preset      => preset,
+      reset_n     => reset_n,
       reset_mask_rev => reset_mask_rev,
       kbm_layout  => kbm_layout,
       swconf      => swconf,
@@ -398,7 +393,7 @@ BEGIN
       reg_w     => sd_reg_w,
       reg_r     => sd_reg_r,
       clk       => sclk,
-      reset_na  => reset_na);
+      reset_n   => reset_n);
   
   id_sd<="001" WHEN scsi_conf="100" ELSE "000";
   
@@ -437,7 +432,7 @@ BEGIN
       hd_mounted => img_mounted(0),
       hd_ro      => img0_readonly,
       clk        => sclk,
-      reset_na   => reset_na);
+      reset_n    => reset_n);
   
   id0_mist<="001" WHEN scsi_conf="011" ELSE "000";
   
@@ -461,7 +456,7 @@ BEGIN
       hd_mounted => img_mounted(1),
       hd_ro      => img1_readonly,
       clk        => sclk,
-      reset_na   => reset_na);
+      reset_n    => reset_n);
  
   id1_mist<="001";
   
@@ -486,7 +481,7 @@ BEGIN
       hd_ro      => img6_readonly,
       ssize      => scsi_cdconf(1),
       clk        => sclk,
-      reset_na   => reset_na);
+      reset_n    => reset_n);
   
   id6_mist<="110";
   
@@ -521,7 +516,7 @@ BEGIN
         img6_readonly<='1';
         img6_mounted<='1';
       END IF;
-      IF reset_na='0' THEN
+      IF reset_n='0' THEN
         img0_mounted<='0';
         img1_mounted<='0';
         img6_mounted<='0';
@@ -664,6 +659,8 @@ BEGIN
   
   ----------------------------------------------------------
   led_disk<=disk_busy WHEN rising_edge(sclk);
+  led_user<=down WHEN rising_edge(sclk);
+  led_power<=preset WHEN rising_edge(sclk);
   
   ----------------------------------------------------------
   -- DDRAM2 : CPU + Download
@@ -714,7 +711,7 @@ BEGIN
       avl_read          => ddram2a_read,
       avl_byteenable    => ddram2a_byteenable,
       clk               => sclk,
-      reset_na          => reset_na);
+      reset_n           => reset_n);
 
   ----------------------------------------------------------
   -- VIDEO
@@ -734,7 +731,7 @@ BEGIN
       avl_read          => ddram_read,
       avl_byteenable    => ddram_s_byteenable,
       clk               => sclk,
-      reset_na          => reset_na);
+      reset_n           => reset_n);
 
   ----------------------------------------------------------
   ddram_s_readdata<=
@@ -889,85 +886,42 @@ BEGIN
   
   -----------------------------------
   PROCESS(sclk) IS
-  BEGIN
-    IF rising_edge(sclk) THEN
-      presetx<=presetx(1 TO 7) & ( spll_locked AND NOT reset);
-    END IF;
-  END PROCESS;
-  preset_na<=presetx(0);
-  
-  -----------------------------------
-  PROCESS(sclk,preset_na) IS
     VARIABLE a : std_logic_vector(31 DOWNTO 0);
   BEGIN
-    IF preset_na='0' THEN
-      state<=sRESET;
-      down<='0';
-      reset_na<='0';
-      ioctl_wait<='1';
-      halt<='0';
+    IF rising_edge(sclk) THEN
+      ureset<=reset OR NOT spll_locked;      
+      ureset2<=ureset;
+      ureset3<=ureset2;
       
-    ELSIF rising_edge(sclk) THEN
+      idown<=ioctl_download;
+      idown2<=idown;
+      idown3<=idown2;
       
-      ioctl_wr2<=ioctl_wr;
+      xdown<=idown2 XOR idown3;
+      
+      -----------------------------------------
+      -- Clear MEM ---------------
+      ddram2b_writedata<=x"0000_0000_0000_0000";
+      ddram2b_burstcount<=x"01";
+--      ddram2b_burstcount<=x"08";      
+      ddram2b_byteenable<=x"FF";
+      ddram2b_write<='0';
       
       CASE state IS
-        WHEN sRESET =>
-          down<='0';
-          reset_na<='0';
-          ioctl_wait<='1';
-          halt<='0';
-          state<=sRESET2;
-
-        WHEN sRESET2 =>
-          down<='0';
-          reset_na<='0';
-          ioctl_wait<='1';
-          halt<='0';
-          state<=sRESET3;
-          
-        WHEN sRESET3 =>
-          down<='0';
-          reset_na<='0';
-          ioctl_wait<='1';
-          halt<='0';
-          state<=sIDLE;
-          
-        WHEN sIDLE =>
-          down<='0';
-          reset_na<='1';
-          ioctl_wait<='0';
-          halt<='0';
-          IF ioctl_download='1' THEN
-            state<=sWAIT;
-            ioctl_wait<='1';
-          END IF;
-          ioctl_cpt<=0;
-          IF dreset='1' THEN --OR status(7)='1' THEN
-            state<=sRESET;
-          END IF;
-          
         WHEN sWAIT =>
-          down<='0';
-          reset_na<='1';
-          ioctl_wait<='1';
-          halt<='1';
-          IF ioctl_cpt=127 THEN
+          reset_n<='0';
+          ioctl_wait<='0';
+          ddram2b_address<="00000000000000000000000000000";
+          IF ioctl_download2='1' THEN
+            state<=sDOWNLOAD;
+          ELSIF unsigned(ioctl_addr) >= 131072 THEN
             state<=sCLR;
           END IF;
-          ioctl_cpt<=ioctl_cpt+1;
-          ddram2b_address<="00100000000000000000000000000";
           
         WHEN sCLR =>
-          down<='1';
+          reset_n<='0';
           ioctl_wait<='1';
-          reset_na<='1';
-          halt<='1';
-          
-          ddram2b_write<=down;
-          ddram2b_writedata<=x"0000_0000_0000_0000";
-          ddram2b_burstcount<=x"08";
-          ddram2b_byteenable<=x"FF";
+          ddram2b_write<='1';
           IF ddram2_waitrequest='0' AND ddram2b_write='1' THEN
             ddram2b_address<=std_logic_vector(unsigned(ddram2b_address)+1);
             if ddram2b_address(2 DOWNTO 0)="111" THEN
@@ -977,18 +931,30 @@ BEGIN
           END IF;
           
         WHEN sGAP =>
-          down<='1';
+          reset_n<='0';
           ioctl_wait<='1';
-          reset_na<='1';
-          halt<='1';
-          
-          IF ddram2b_address="01000000000000000000000000000" THEN
-            state<=sDOWNLOAD;
+          IF ioctl_download2='1' THEN
+            state<=sWAIT;
+          ELSIF (unsigned(ddram2b_address & "000") = OBRAM_ADRS) THEN
+            state<=sCLR;
+            ddram2b_address <= std_logic_vector(resize(shift_right(unsigned(OBRAM_ADRS) + unsigned(ioctl_addr(19 DOWNTO 0)) + 8,3),29));
+          ELSIF (unsigned(ddram2b_address & "000") = x"2000_0000") THEN
+            state<=sRUN;
           ELSE
             state<=sCLR;
           END IF;
           
+        WHEN sRUN =>
+          reset_n<='1';
+          ioctl_wait<='0';
+          IF ioctl_download2='1' THEN
+            state<=sWAIT;
+          END IF;
+          
         WHEN sDOWNLOAD =>
+          reset_n<='0';
+          ioctl_wait<=ioctl_wr AND NOT ioctl_wr2;
+          
           a:=std_logic_vector(OBRAM_ADRS);
           a(19 DOWNTO 0):=ioctl_addr(19 DOWNTO 0);
           
@@ -1012,63 +978,39 @@ BEGIN
           
           IF ioctl_wr='1' AND ioctl_wr2='0' THEN
             ddram2b_write<='1';
-            ioctl_wait<='1';
           END IF;
           IF ddram2b_write='1' AND ddram2_waitrequest='0' THEN
             ddram2b_write<='0';
-            ioctl_wait<='0';
+          END IF;
+          IF ioctl_download2='0' THEN
+            state<=sWAIT;
           END IF;
           
-          down<='1';
-          reset_na<='0';
-          ioctl_wait<='0';
-          halt<='1';
-          IF ioctl_download='0' THEN
-            state<=sIDLE;
-          END IF;
-            
       END CASE;
       
-      IF resets='1' AND resetz='0' AND state=sIDLE THEN
-        state<=sRESET;
+      -- Download ----------------
+      ioctl_download2<=ioctl_download;
+
+      down <= NOT reset_n;
+      ioctl_wr2<=ioctl_wr;
+      
+      ------------------------------
+      IF ureset3='1' AND ureset2='0' THEN
+        state<=sWAIT;
       END IF;
-      resetz<=resets;
+      
+      ------------------------------
+      IF reset_n='0' THEN
+        presets<="11111";
+      ELSE
+        presets<=presets(3 DOWNTO 0) & '0';
+      END IF;
       
     END IF;
   END PROCESS;
-  
-  led_user<=down;
-  led_power<=preset;
-  
-  -- 2000 0000
-  -- 3FFF FFFF
 
-  -- 512MB : 2000 0000 
-  --         1FFF FFF8 [28:3] => [25:0]
-  
-  -----------------------------------
-  -- RESET Processeur
-  GenReset: PROCESS (sclk,reset_na) IS
-  BEGIN
-    IF reset_na='0' THEN
-      preset<='1';
-      preset_delay<="0000";
-    ELSIF rising_edge(sclk) THEN
-      IF preset_delay="1111" THEN
-        preset<='0';
-      ELSE
-        preset<='1';
-      END IF;
-      preset_delay<=preset_delay(2 DOWNTO 0) & '1';
-
-      IF halt='1' THEN
-        preset<='1';
-      END IF;
-    END IF;
-  END PROCESS GenReset;
-  
-  
-  
+  preset<=presets(4);
+    
 END ARCHITECTURE rtl;
       
     

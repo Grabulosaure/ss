@@ -83,7 +83,7 @@ ENTITY  fpu_mp IS
     
     -- Général
     reset    : IN std_logic;             -- Reset synchrone   
-    reset_na : IN std_logic;             -- Reset asynchrone
+    reset_n  : IN std_logic;             -- Reset
     clk      : IN std_logic              -- Horloge
     );
 END ENTITY fpu_mp;
@@ -99,52 +99,8 @@ ARCHITECTURE multi OF fpu_mp IS
   -- DENORM_ITER : false=1 cycle | true=iterative
   CONSTANT DENORM_ITER : boolean := true;
 
- CONSTANT NB : natural := mux(N>=3,1,0)+mux(N>=2,1,0);
+  CONSTANT NB : natural := mux(N>=3,1,0)+mux(N>=2,1,0);
   
-  COMPONENT fpu_regs_2r1w IS
-    GENERIC (
-      THRU     : boolean;
-      N        : natural);
-    PORT (
-      n_fs1    : IN  unsigned(N-1 DOWNTO 0);
-      fs1      : OUT uv64;
-      n_fs2    : IN  unsigned(N-1 DOWNTO 0);
-      fs2      : OUT uv64;
-      n_fd     : IN  unsigned(N-1 DOWNTO 0);
-      fd       : IN  uv64;
-      fd_maj   : IN  unsigned(0 TO 1);
-      reset_na : IN  std_logic;
-      clk      : IN  std_logic);
-  END COMPONENT fpu_regs_2r1w;
-
-  COMPONENT fpu_calc IS
-    GENERIC (
-      DENORM_HARD : boolean;
-      DENORM_FTZ  : boolean;
-      DENORM_ITER : boolean;
-      TECH        : natural);
-    PORT (
-      rdy      : OUT std_logic;
-      req      : IN  std_logic;
-      fin      : OUT std_logic;
-      flush    : IN  std_logic;
-      stall    : IN  std_logic;
-      idle     : OUT std_logic;
-      fop      : IN  uv4;
-      sdi      : IN  std_logic;
-      sdo      : IN  std_logic;
-      rd       : IN  uv2;
-      tem      : IN  unsigned(4 DOWNTO 0);
-      fs1      : IN  uv64;
-      fs2      : IN  uv64;
-      fd       : OUT uv64;
-      fcc      : OUT uv2;
-      exc      : OUT unsigned(4 DOWNTO 0);
-      unf      : OUT std_logic;
-      reset_na : IN  std_logic;
-      clk      : IN  std_logic);
-  END COMPONENT fpu_calc;
-
   --------------------------------------
   -- FIFO / PIPELINE FPU
   CONSTANT REG_FR   : uv2 :="00";
@@ -256,7 +212,7 @@ BEGIN
   ox.present<='1';  
   --------------------------------------
   -- Registres
-  i_fpu_regs_2r1w: fpu_regs_2r1w
+  i_fpu_regs_2r1w: ENTITY work.fpu_regs_2r1w
     GENERIC MAP (
       THRU     => true,
       N        => 5 + NB) -- REGS : NCPU * (16*64bits + DFQ)
@@ -268,7 +224,6 @@ BEGIN
       n_fd     => n_fd_c(5 + NB DOWNTO 1),
       fd       => fd_c,
       fd_maj   => fd_maj_c,
-      reset_na => reset_na,
       clk      => clk);
   
   --------------------------------------
@@ -633,20 +588,9 @@ BEGIN
   
   ox.do<=do_c;
   
-  Machine:PROCESS(clk,reset_na) IS
+  Machine:PROCESS(clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      exception<="0000";
-      fifo_lev<=0;
-      fifo_lv<='0';
-      dfq_lev_i<=0;
-      dfq_lev_o<=0;
-      wri_cpt<=0;
-      ld_hilo<='0';
-      st_hilo<='0';
-      calc_flush<='0';
-      flush_pend<='0';
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
 
       cpusel<=cpusel_c;
       
@@ -693,6 +637,18 @@ BEGIN
       n_fs2<=n_fs2_c;
       
       ---------------------------
+      IF reset_n='0' THEN
+        exception<="0000";
+        fifo_lev<=0;
+        fifo_lv<='0';
+        dfq_lev_i<=0;
+        dfq_lev_o<=0;
+        wri_cpt<=0;
+        ld_hilo<='0';
+        st_hilo<='0';
+        calc_flush<='0';
+        flush_pend<='0';
+      END IF;
     END IF;
   END PROCESS Machine;
   
@@ -705,7 +661,7 @@ BEGIN
   calc_fs2<=mux(n_fs2(0),fs2r(31 DOWNTO 0),fs2r(63 DOWNTO 32)) &
              fs2r(31 DOWNTO 0);
 
-  i_fpu_calc: fpu_calc
+  i_fpu_calc: ENTITY work.fpu_calc
     GENERIC MAP (
       DENORM_HARD => DENORM_HARD,
       DENORM_FTZ  => DENORM_FTZ,
@@ -729,7 +685,7 @@ BEGIN
       fcc      => calc_fcc,
       exc      => calc_exc,
       unf      => calc_unf,
-      reset_na => reset_na,
+      reset_n  => reset_n,
       clk      => clk);
 
   fsr_rd<=fsr(cpusel).rd;

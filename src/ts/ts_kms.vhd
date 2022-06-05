@@ -41,8 +41,8 @@ ENTITY ts_kms IS
     mo_rdy  : IN  std_logic;
     
     -- Global
-    clk      : IN std_logic;
-    reset_na : IN std_logic
+    clk     : IN std_logic;
+    reset_n : IN std_logic
     );
 END ENTITY ts_kms;
 
@@ -75,14 +75,11 @@ BEGIN
   ex_rdy_i <=sp_rdy OR kb_rdy OR mo_rdy;
   ex_rdy<=ex_rdy_i;
   
-  Filtrox: PROCESS (clk,reset_na)
+  Filtrox: PROCESS (clk)
     VARIABLE ch  : enum_sel;
     VARIABLE raz : std_logic;
   BEGIN
-    IF reset_na='0' THEN
-      sel<=SPORT;
-      cpt<=0;
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       raz:='0';
       IF ex_rdy_i='1' AND ex_req='1' THEN
         IF ex_data=CHAR_K_MIN OR ex_data=CHAR_K_MAJ THEN
@@ -106,6 +103,11 @@ BEGIN
           END IF;
         END IF;
         mem<=ch;
+      END IF;
+      
+      IF reset_n='0' THEN
+        sel<=SPORT;
+        cpt<=0;
       END IF;
       
     END IF;

@@ -352,98 +352,7 @@ ARCHITECTURE rtl OF ts_lance IS
   CONSTANT DMA_FLUSH            : uint6 :=9;
   
   -- On insère le microcode ici
-
--- DEBUT Insertion Microcode
-  TYPE enum_code IS (
-        IF_DODO,
-        IF_TX_FIFO_EMPTY,
-        IF_RX_EVENT,
-        IF_TX_NEW,
-        IF_INIT,
-        GOTO,
-        DMA_READ,
-        LOAD,
-        OP,
-        IF_RXACT_SET,
-        LOOP_STORE,
-        DMA_WRITE,
-        RADR_IF_NOT_RXEOF,
-        STORE,
-        IF_TMD_OWN0,
-        LOOP_LOAD,
-        IF_NOT_TXEND);
-
-
-  TYPE type_microcode IS RECORD
-    op : enum_code;
-    val : uint6;
-  END RECORD;
-  TYPE arr_microcode IS ARRAY(natural RANGE <>) OF type_microcode;
-
-  CONSTANT microcode : arr_microcode :=(
-        (IF_DODO             ,0), --0
-        (IF_TX_FIFO_EMPTY    ,50), --1
-        (IF_RX_EVENT         ,26), --2
-        (IF_TX_NEW           ,44), --3
-        (IF_INIT             ,6), --4
-        (GOTO                ,0), --5
-        (DMA_READ            ,IADR_00), --6
-        (LOAD                ,L_INIT), --7
-        (OP                  ,DMA_FLUSH), --8
-        (DMA_READ            ,IADR_04), --9
-        (LOAD                ,L_INIT), --10
-        (OP                  ,DMA_FLUSH), --11
-        (DMA_READ            ,IADR_08), --12
-        (LOAD                ,L_INIT), --13
-        (OP                  ,DMA_FLUSH), --14
-        (DMA_READ            ,IADR_0C), --15
-        (LOAD                ,L_INIT), --16
-        (OP                  ,DMA_FLUSH), --17
-        (DMA_READ            ,IADR_10), --18
-        (LOAD                ,L_INIT), --19
-        (OP                  ,DMA_FLUSH), --20
-        (DMA_READ            ,IADR_14), --21
-        (LOAD                ,L_INIT), --22
-        (OP                  ,DMA_FLUSH), --23
-        (OP                  ,INIT_END), --24
-        (GOTO                ,0), --25
-        (IF_RXACT_SET        ,31), --26
-        (DMA_READ            ,REC_DESC), --27
-        (LOAD                ,L_RMD), --28
-        (LOAD                ,L_RMD), --29
-        (OP                  ,MAJ_ADR_SKIP), --30
-        (OP                  ,DMA_FLUSH), --31
-        (OP                  ,REC_RADR_RXACT), --32
-        (LOOP_STORE          ,0), --33
-        (DMA_WRITE           ,PTR), --34
-        (RADR_IF_NOT_RXEOF   ,0), --35
-        (OP                  ,RMD_MAJ), --36
-        (OP                  ,DMA_FLUSH), --37
-        (STORE               ,L_RMD), --38
-        (STORE               ,L_RMD), --39
-        (STORE               ,L_ALIGN), --40
-        (DMA_WRITE           ,REC_DESC), --41
-        (OP                  ,CLR_RXACT), --42
-        (GOTO                ,0), --43
-        (DMA_READ            ,EMI_DESC), --44
-        (OP                  ,EMI_CLRTDMD), --45
-        (LOAD                ,L_TMD), --46
-        (LOAD                ,L_TMD), --47
-        (IF_TMD_OWN0         ,0), --48
-        (OP                  ,SET_TXACT), --49
-        (DMA_READ            ,PTR), --50
-        (LOOP_LOAD           ,0), --51
-        (IF_NOT_TXEND        ,0), --52
-        (OP                  ,TMD_MAJ), --53
-        (OP                  ,DMA_FLUSH), --54
-        (STORE               ,L_TMD), --55
-        (STORE               ,L_TMD), --56
-        (STORE               ,L_ALIGN), --57
-        (DMA_WRITE           ,EMI_DESC), --58
-        (OP                  ,CLR_TXACT), --59
-        (GOTO                ,0)); --60
-
--- FIN Insertion Microcode
+  % MICROCODE
   
 BEGIN
   
@@ -611,11 +520,38 @@ BEGIN
   -- label    OPERATION           PARM/label
   ----------------------------------
   -- Boucle d'attente
+  %0:
+  %debut:     IF_DODO             0
+  %           IF_TX_FIFO_EMPTY    tx_empty
+  %           IF_RX_EVENT         rx_event
+  %           IF_TX_NEW           tx_new
+  %           IF_INIT             init
+  %           GOTO                debut
   
   ----------------------------------
   -- Initialisation    
   -- - Charge registres init
   -- - On charge par mots de 32bits, car on ne connait pas vraiment l'alignement
+  %init:      DMA_READ            IADR_00
+  %           LOAD                L_INIT  -- INIT0 : MODE / PADR[15:0]
+  %           OP                  DMA_FLUSH
+  %           DMA_READ            IADR_04
+  %           LOAD                L_INIT  -- INIT1 : PADR[31:16] / PADR[47:32]
+  %           OP                  DMA_FLUSH
+  %           DMA_READ            IADR_08
+  %           LOAD                L_INIT  -- INIT2 : LADRF[15:0] / LADRF[31:16]
+  %           OP                  DMA_FLUSH
+  %           DMA_READ            IADR_0C
+  %           LOAD                L_INIT  -- INIT3 : LADRF[47:32] / LADRF[63:48]
+  %           OP                  DMA_FLUSH
+  %           DMA_READ            IADR_10
+  %           LOAD                L_INIT  -- INIT4 : RDRA[15:0] / RLEN
+  %           OP                  DMA_FLUSH
+  %           DMA_READ            IADR_14
+  %           LOAD                L_INIT  -- INIT5 : TDRA[15:0] / TLEN
+  %           OP                  DMA_FLUSH
+  %           OP                  INIT_END
+  %           GOTO                debut
     
   ----------------------------------
   -- RX : FIFO réception pleine
@@ -624,14 +560,51 @@ BEGIN
   --    - Marque RX_act=1
   -- - Dépile / copie
 
+  %rx_event:  IF_RXACT_SET        rec_copie  -- (26)
+  %           DMA_READ            REC_DESC   -- Lecture rdra(rmd_cpt)
+  %           LOAD                L_RMD      -- MD0=BURST[0] : RMD0, RMD1
+  %           LOAD                L_RMD      -- MD1=BURST[1] : RMD2, RMD3
+  %           OP                  MAJ_ADR_SKIP --(30)Si OWN=0, pas de buffer
+  %rec_copie: OP                  DMA_FLUSH
+  %           OP                  REC_RADR_RXACT -- RXACT=1
+  %           LOOP_STORE          0          -- (33)Boucle de copie
+  %           DMA_WRITE           PTR        -- Ecriture burst
+  %           RADR_IF_NOT_RXEOF   debut      -- Test fin de trame
+  %           OP                  RMD_MAJ    -- Mise à jour RMD, incrément
+  %           OP                  DMA_FLUSH
+  %           STORE               L_RMD      -- BURST[0] = RMD0
+  %           STORE               L_RMD      -- BURST[1] = RMD1
+  %           STORE               L_ALIGN
+  %           DMA_WRITE           REC_DESC   -- Ecriture rdra(rmd_cpt)
+  %           OP                  CLR_RXACT  -- RXACT=0
+  %           GOTO                debut
   
   ----------------------------------
   -- TX : Nouvelle trame (44)
+  %tx_new:
   -- - Charge descripteur
   -- - TX_act=1
   -- - Copie / Empile
+  %           DMA_READ            EMI_DESC   -- Lecture tdra(rmd_cpt)
+  %           OP                  EMI_CLRTDMD
+  %           LOAD                L_TMD      -- MD0=BURST[0] : RMD0, RMD1
+  %           LOAD                L_TMD      -- MD1=BURST[1] : RMD2, RMD3
+  %           IF_TMD_OWN0         debut      -- Si OWN=0, rien à émettre
+  %           OP                  SET_TXACT
+  %tx_empty: -- TX : FIFO vide (50)
   -- - Copie / Empile
   -- - Si fin de trame : TX_act=0, Mise à jour descripteur
+  %           DMA_READ            PTR
+  %           LOOP_LOAD           0
+  %           IF_NOT_TXEND        debut
+  %           OP                  TMD_MAJ    -- Mise à jour TMD   incrément
+  %           OP                  DMA_FLUSH
+  %           STORE               L_TMD      -- BURST[0] = MD0
+  %           STORE               L_TMD      -- BURST[1] = MD1
+  %           STORE               L_ALIGN
+  %           DMA_WRITE           EMI_DESC   -- Ecriture tdra(tmd_cpt)
+  %           OP                  CLR_TXACT
+  %           GOTO                debut
   
   --------------------------------------------------------------------
   Proc:PROCESS(clk)

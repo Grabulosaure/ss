@@ -40,7 +40,7 @@ ENTITY ts_lance_mac IS
     mac_rec_r   : OUT type_mac_rec_r;
     
     clk         : IN std_logic;
-    reset_na    : IN std_logic
+    reset_n     : IN std_logic
     );
 END ENTITY ts_lance_mac;
 

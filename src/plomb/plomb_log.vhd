@@ -34,7 +34,7 @@ ENTITY plomb_log IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY plomb_log;
 
@@ -51,15 +51,12 @@ ARCHITECTURE beh OF plomb_log IS
 BEGIN
   --pragma synthesis_off
 
-  Log:PROCESS(clk,reset_na)
+  Log:PROCESS(clk)
     VARIABLE lout : line;
     VARIABLE t  : string(1 TO 8);
     VARIABLE co : character;
   BEGIN
-    IF reset_na='0' THEN
-      level<=0;
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       -- Lectures
       IF w.dack='1' AND r.dreq='1' THEN
         fifo(0 TO PROF-2)<=fifo(1 TO PROF-1);
@@ -167,6 +164,10 @@ BEGIN
         writeline (fil,lout);
       END IF;
       
+      IF reset_n='0' THEN
+        level<=0;
+      END IF;    
+
     END IF;
   END PROCESS Log;
 

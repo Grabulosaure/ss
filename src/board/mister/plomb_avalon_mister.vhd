@@ -37,7 +37,7 @@ ENTITY plomb_avalon64 IS
     
     -- Global
     clk      : IN std_logic;
-    reset_na : IN std_logic
+    reset_n  : IN std_logic
     );
 END ENTITY plomb_avalon64;
 
@@ -172,7 +172,7 @@ BEGIN
             write_c<='1';
             burstcpt_c<=1;
           ELSIF blen_v=1 THEN
-            -- Read
+            -- Read single
             IF avl_waitrequest='0' THEN
               ack_c<='1';
               fifo_push_c<='1';
@@ -200,13 +200,13 @@ BEGIN
       WHEN sWRITE =>
         write_c<='1';
         dbl_c<='1';
-        IF pw.req='1' THEN
+        IF pw.req='1' OR reset_n='0' THEN
           mem_d_c <=pw.d;
           mem_be_c<=pw.be;
           IF burstcpt MOD 2=1 THEN
             avl_write<='1';
             IF avl_waitrequest='0' THEN
-              ack_c<='1';
+              ack_c<=reset_n;
               fifo_push_c<=wrack_mem;
               burstcpt_c<=burstcpt+1;
               IF burstcpt=burstlen-1 THEN
@@ -240,16 +240,9 @@ BEGIN
   END PROCESS Comb;
   
   ------------------------------------------------------------------
-  Sync: PROCESS (clk,reset_na) IS
+  Sync: PROCESS (clk) IS
   BEGIN
-    IF reset_na='0' THEN
-      state<=sIDLE;
-      fifo_v<='0';
-      fifo_lev<=0;
-      dfifo_v<='0';
-      dfifo_lev<=0;
-      
-    ELSIF rising_edge(clk) THEN
+    IF rising_edge(clk) THEN
       state<=state_c;
       mem_d <=mem_d_c;
       mem_be<=mem_be_c;
@@ -304,8 +297,16 @@ BEGIN
       ELSE
         full<='0';
       END IF;
-      -------------------------------------------------
       
+      -------------------------------------------------
+      IF reset_n='0' AND state/=sWRITE THEN
+        fifo_v<='0';
+        fifo_lev<=0;
+        dfifo_v<='0';
+        dfifo_lev<=0;
+        state<=sIDLE;
+      END IF;        
+
     END IF;
   END PROCESS Sync;
   
