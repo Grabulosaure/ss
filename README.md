@@ -31,7 +31,7 @@ Place boot.rom in games/SparcStation folder.
 ### OS
 Use OS images from http://temlib.org/pub/mister/SS/ , passwords are the OS names, uppercase and lowercase characters. 
 
-You can also make your own images using QEMU, or a real SparcStation.
+You can also make your own images using in the core, QEMU, or a real SparcStation.
 
 [Using QEMU Sparc emulator to build a RAW image](https://learn.adafruit.com/build-your-own-sparc-with-qemu-and-solaris?view=all&gclid=CjwKCAjwsJ6TBhAIEiwAfl4TWB7lb0zPB9E2s0v9HOEfbNoVReuQV-d9LEpU9mJ8X-fljT1ssA6kQRoCJdgQAvD_BwE
 )
@@ -52,7 +52,7 @@ CDROM works with Solaris (8), NextSTEP, Linux (RH). To mount the CD with Solaris
 
 I've changed L2TLB control so that it can be enabled/disabled at any time. NextSTEP isn't compatible, Solaris and Linux seem safe. There are a few other possible tweaks for better performance, I'm curious of the effects on real-time games.
 
-The Ethernet interface isn't enabled on MiSTer. It used to work on the Xilinx board with a direct MII PHY.
+The Ethernet interface works with the USER_IO port connected to a MII PHY like the [LAN8720](https://www.waveshare.com/lan8720-eth-board.htm).
 
 ## OS Notes
 Besides my own bugs, running all these different OSes is a bit tricky because the actual CPUs on SparcStations,
