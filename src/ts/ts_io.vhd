@@ -74,6 +74,10 @@ ENTITY ts_io IS
     pal_a       : OUT uv8;
     pal_wr      : OUT std_logic;
     
+    -- Audio
+    audio_l     : OUT uv16;
+    audio_r     : OUT uv16;
+    
     -- SCSI
     scsi_w      : OUT type_scsi_w;
     scsi_r      : IN  type_scsi_r;
@@ -165,6 +169,13 @@ ARCHITECTURE rtl OF ts_io IS
   SIGNAL dmaux_r,inter_r,iommu_r,lance_r : type_pvc_r;
   SIGNAL rtc_r,sport1_r,sport2_r,timer_r,vid_r : type_pvc_r;
   
+  SIGNAL audio_r_pvc    : type_pvc_r;
+  SIGNAL int_audio : std_logic := '0';
+  SIGNAL audio_sample_l : uv16;
+  SIGNAL audio_sample_r : uv16;
+  SIGNAL audio_pw : type_plomb_w;
+  SIGNAL audio_pr : type_plomb_r;
+
   -- Ports série
   SIGNAL di1_data,di2_data,di3_data,di4_data : uv8;
   SIGNAL di1_req,di2_req,di3_req,di4_req : std_logic;
@@ -178,8 +189,8 @@ ARCHITECTURE rtl OF ts_io IS
   
   SIGNAL mux_pw : type_plomb_w;
   SIGNAL mux_pr : type_plomb_r;
-  SIGNAL vi_w   : arr_plomb_w(0 TO 1);
-  SIGNAL vi_r   : arr_plomb_r(0 TO 1);
+  SIGNAL vi_w   : arr_plomb_w(0 TO 2);
+  SIGNAL vi_r   : arr_plomb_r(0 TO 2);
   
   -- SCSI ESP
   SIGNAL esp_r   : type_pvc_r;
@@ -303,6 +314,7 @@ BEGIN
       int_sport    => int_sport,
       int_kbm      => int_kbm,
       int_video    => int_video,
+      int_audio    => int_audio,
       clk          => clk,
       reset_n      => reset_n);
 
@@ -326,12 +338,14 @@ BEGIN
   Gen_MuxLANCE: IF ETHERNET GENERATE
     vi_w(0)<=esp_pw;
     vi_w(1)<=lance_pw;
+    vi_w(2)<=audio_pw;
      
     esp_pr<=vi_r(0);
     lance_pr<=vi_r(1);
+    audio_pr<=vi_r(2);
     i_mux: ENTITY work.plomb_mux
       GENERIC MAP (
-        NB   => 2,
+        NB   => 3,
         PROF => 10)
       PORT MAP (
         vi_w     => vi_w,
@@ -343,8 +357,23 @@ BEGIN
   END GENERATE Gen_MuxLANCE;
   
   Gen_NoMuxLANCE: IF NOT ETHERNET GENERATE
-    mux_pw<=esp_pw;
-    esp_pr<=mux_pr;
+    vi_w(0)<=esp_pw;
+    vi_w(1)<=audio_pw;
+   
+    esp_pr<=vi_r(0);
+    audio_pr<=vi_r(1);
+    
+    i_mux: ENTITY work.plomb_mux
+      GENERIC MAP (
+        NB   => 2,
+        PROF => 10)
+      PORT MAP (
+        vi_w     => vi_w,
+        vi_r     => vi_r,
+        o_w      => mux_pw,
+        o_r      => mux_pr,
+        clk      => clk,
+        reset_n  => reset_n);
   END GENERATE Gen_NoMuxLANCE;
   
   -----------------------------------
@@ -675,10 +704,28 @@ BEGIN
       reset_n  => reset_n);
   
   -----------------------------------
+  -- CS4231 Audio
+  i_ts_cs4231a: ENTITY work.ts_cs4231a
+    GENERIC MAP (
+      SYSFREQ => SYSFREQ)
+    PORT MAP (
+      sel      => sel.audio,
+      w        => io_w,
+      r        => audio_r_pvc,
+      -- DMA interface
+      pw       => audio_pw,
+      pr       => audio_pr,
+      irq      => int_audio,
+      sample_l => audio_sample_l,
+      sample_r => audio_sample_r,
+      clk      => clk,
+      reset_n  => reset_n);
+  
+  -----------------------------------
   sel2 <=sel  WHEN rising_edge(clk);
   
   ReadMux:PROCESS (sel2,sel,dmaux_r,inter_r,iommu_r,esp_r,lance_r,rtc_r,
-                   vid_r,sport1_r,sport2_r,timer_r,flash_r,ibram_r)
+                   vid_r,sport1_r,sport2_r,timer_r,flash_r,ibram_r,audio_r_pvc)
   BEGIN
     IF sel2.dma2='1' OR sel2.auxio0='1' THEN
       io_r<=dmaux_r;
@@ -704,6 +751,8 @@ BEGIN
       io_r<=flash_r;
     ELSIF sel2.ibram='1' THEN
       io_r<=ibram_r;
+    ELSIF sel2.audio='1' THEN
+      io_r<= audio_r_pvc;
     ELSE
       io_r.dr<=x"BADACCE5";
     END IF;
@@ -732,10 +781,16 @@ BEGIN
       io_r.ack<=flash_r.ack;
     ELSIF sel.ibram='1' THEN
       io_r.ack<=ibram_r.ack;
+    ELSIF sel.audio='1' THEN
+      io_r.ack<= audio_r_pvc.ack;
     ELSE
       io_r.ack<='1';                    -- Zone inconnue ...
     END IF;
      
   END PROCESS ReadMux;
+  
+  -- Output audio samples to upper system
+  audio_l <= audio_sample_l;
+  audio_r <= audio_sample_r;
          
 END ARCHITECTURE rtl;

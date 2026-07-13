@@ -15,7 +15,7 @@
 --  2 = (VME+SBUS)
 --  3 = (VME+SBUS)
 --  4 = SCSI
---  5 = (VME+SBUS)
+--  5 = (VME+SBUS+Audio)
 --  6 = Ethernet
 --  7 = (VME+SBUS)
 --  8 = (Video)
@@ -74,6 +74,7 @@ ENTITY ts_inter IS
     int_sport    : IN std_logic; -- Serial port
     int_kbm      : IN std_logic; -- Keyboard / Mouse
     int_video    : IN std_logic; -- Video (CG3)
+    int_audio    : IN std_logic; -- Audio (CS4231)
     
     -- Global
     clk      : IN std_logic;
@@ -106,20 +107,20 @@ ARCHITECTURE rtl OF ts_inter IS
     IF NOT MP OR itr=cpu THEN
       RETURN
         (pend(30) OR pend(29) OR pend(28) OR pend(27)) & -- 15 : Async errors
-        int_timer_p &                          -- 14: Per-processor counter
-        (pend(6) OR pend(13) OR pend(17)) &    -- 13: VME7 + SBUS7 + Audio
-        (pend(14) OR pend(15)) &               -- 12: Keyboard/Mouse + Sport
-        (pend(5) OR pend(12) OR pend(22)) &    -- 11: VME6 + SBUS6 + Floppy
-        pend(19) &                             -- 10: System Timer
-        (pend(4) OR pend(11) OR pend(21)) &    --  9: VME5 + SBUS5 + Module
-        pend(20) &                             --  8: Video (mainboard)
-        (pend(3) OR pend(10)) &                --  7: VME4 + SBUS4
-        pend(16) &                             --  6: Ethernet
-        (pend(2) OR pend(9)) &                 --  5: VME3 + SBUS3
-        pend(18) &                             --  4: SCSI
-        (pend(1) OR pend(8)) &                 --  3: VME2 + SBUS2
-        (pend(0) OR pend(7)) &                 --  2: VME1 + SBUS1
-        '0';                                   --  1: (Softint)
+        int_timer_p &                                    -- 14: Per-processor counter
+        (pend(6) OR pend(13)) &                          -- 13: VME7 + SBUS7
+        (pend(14) OR pend(15)) &                         -- 12: Keyboard/Mouse + Sport
+        (pend(5) OR pend(12) OR pend(22)) &              -- 11: VME6 + SBUS6 + Floppy
+        pend(19) &                                       -- 10: System Timer
+        (pend(4) OR pend(11) OR pend(17) OR pend(21)) &  --  9: VME5 + SBUS5 + Audio + Module
+        pend(20) &                                       --  8: Video (mainboard)
+        (pend(3) OR pend(10)) &                          --  7: VME4 + SBUS4
+        pend(16) &                                       --  6: Ethernet
+        (pend(2) OR pend(9)) &                           --  5: VME3 + SBUS3
+        pend(18) &                                       --  4: SCSI
+        (pend(1) OR pend(8)) &                           --  3: VME2 + SBUS2
+        (pend(0) OR pend(7)) &                           --  2: VME1 + SBUS1
+        '0';                                             --  1: (Softint)
     ELSE
       RETURN '0' & int_timer_p & "0000000000000";
     END IF;
@@ -134,12 +135,13 @@ BEGIN
     "0000" &               -- [26:23] Réservé
     '0' & '0' & '0' &      -- [22] Floppy     [21] Module    [20] Video
     int_timer_s &          -- [19] System Timer
-    int_esp & '0' &        -- [18] SCSI       [17] Audio
+    int_esp &              -- [18] SCSI
+    '0' &                  -- [17] Audio
     int_ether &            -- [16] Ethernet
     int_sport &            -- [15] Sport
     int_kbm &              -- [14] Keyboard + Mouse
     "00" &                 -- [13:12] : SBUS(7-6)
-    int_video &            -- [11]    : SBUS5 : Video (CG3)
+    (int_video OR int_audio) & -- [11] : SBUS5 : Video (CG3) + Audio (CS4231)
     "0000" &               -- [10:7]  : SBUS(4-3-2-1)
     "0000000";             -- [6:0] VME
   

@@ -30,6 +30,7 @@ set_global_assignment -name VHDL_FILE ../../../ts/scsi_mist.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/scsi_sd.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/ts_aciamux.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/ts_core.vhd
+set_global_assignment -name VHDL_FILE ../../../ts/ts_cs4231a.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/ts_decode.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/ts_dmaux.vhd
 set_global_assignment -name VHDL_FILE ../../../ts/ts_esp.vhd

@@ -81,6 +81,10 @@ ENTITY ts_core IS
     pal_a       : OUT uv8;
     pal_wr      : OUT std_logic;
     
+    -- Audio
+    audio_l     : OUT uv16;
+    audio_r     : OUT uv16;
+    
     -- SCSI
     scsi_w      : OUT type_scsi_w;
     scsi_r      : IN  type_scsi_r;
@@ -376,6 +380,8 @@ ARCHITECTURE rtl OF ts_core IS
       vga_clk     : IN  std_logic;
       vga_en      : IN  std_logic;
       vga_on      : IN  std_logic;
+      audio_l     : OUT uv16;
+      audio_r     : OUT uv16;
       pal_clk     : OUT std_logic;
       pal_d       : OUT uv24;
       pal_a       : OUT uv8;
@@ -1362,6 +1368,8 @@ BEGIN
       vga_clk     => vga_clk,
       vga_en      => vga_en,
       vga_on      => vga_on,
+      audio_l     => audio_l,
+      audio_r     => audio_r,
       pal_clk     => pal_clk,
       pal_d       => pal_d,
       pal_a       => pal_a,

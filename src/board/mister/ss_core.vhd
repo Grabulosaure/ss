@@ -43,6 +43,10 @@ ENTITY ss_core IS
     vga_ce           : OUT   std_logic;
     vga_clk          : OUT   std_logic;
     
+    -- Audio
+    audio_l          : OUT   uv16;
+    audio_r          : OUT   uv16;
+    
     fb_pal_clk       : OUT   std_logic;
     fb_pal_d         : OUT   uv24;
     fb_pal_a         : OUT   uv8;
@@ -310,6 +314,8 @@ BEGIN
       vga_clk     => clk65m,
       vga_en      => vga_en,
       vga_on      => vga_on,
+      audio_l     => audio_l,
+      audio_r     => audio_r,
       pal_clk     => fb_pal_clk,
       pal_d       => fb_pal_d,
       pal_a       => fb_pal_a,

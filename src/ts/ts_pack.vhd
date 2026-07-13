@@ -22,6 +22,7 @@ PACKAGE ts_pack IS
   TYPE type_sel IS RECORD
     ram     : std_logic;
     video   : std_logic;
+    audio   : std_logic;
     dma2    : std_logic;
     esp     : std_logic;
     lance   : std_logic;
