@@ -197,8 +197,9 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL sd_cmd_en : std_logic;
 
   -- RTC
-  SIGNAL rtcinit  : unsigned(43 DOWNTO 0);
+  SIGNAL rtcinit  : unsigned(55 DOWNTO 0);
   SIGNAL rtcset   : std_logic;
+  SIGNAL rtcyear  : unsigned(7 DOWNTO 0);   -- year re-based for the Sun TOD
   
   -- SD/MMC
   SIGNAL ddram_address_i,ddram2_address_i : std_logic_vector(28 DOWNTO 0);
@@ -823,13 +824,28 @@ BEGIN
   --   8: 1 month      9: 10 month
   --  10: 1 year      11: 10 year
   --  12: week
-  -- RTCINIT : 7D | 10Y|Y | 10M|M | 10D|D | 10H|H | 10S|S
-  rtcinit(43 DOWNTO 40)<=unsigned(rtc(43 DOWNTO 40))-1; -- W
-  rtcinit(39 DOWNTO 32)<=unsigned(rtc(39 DOWNTO 32)); -- 10Y/Y
-  rtcinit(31 DOWNTO 24)<=unsigned(rtc(31 DOWNTO 24)); -- 10M/M
-  rtcinit(23 DOWNTO 16)<=unsigned(rtc(23 DOWNTO 16)); -- 10D/D
-  rtcinit(15 DOWNTO  8)<=unsigned(rtc(15 DOWNTO  8)); -- 10H/H
-  rtcinit( 7 DOWNTO  0)<=unsigned(rtc( 7 DOWNTO  0)); -- 10S/S
+  RTCYearRebase:PROCESS(rtc)
+    VARIABLE lo,hi : unsigned(4 DOWNTO 0);
+  BEGIN
+    lo := resize(unsigned(rtc(43 DOWNTO 40)),5) + 2;   -- units + 2
+    hi := resize(unsigned(rtc(47 DOWNTO 44)),5) + 3;   -- tens  + 3
+    IF lo > 9 THEN
+      lo := lo - 10;
+      hi := hi + 1;
+    END IF;
+    IF hi > 9 THEN
+      hi := hi - 10;
+    END IF;
+    rtcyear <= hi(3 DOWNTO 0) & lo(3 DOWNTO 0);
+  END PROCESS RTCYearRebase;
+
+  rtcinit(55 DOWNTO 48)<=unsigned(rtc(55 DOWNTO 48))+1; -- weekday 1..7
+  rtcinit(47 DOWNTO 40)<=rtcyear;                       -- year, re-based to 1968
+  rtcinit(39 DOWNTO 32)<=unsigned(rtc(39 DOWNTO 32));   -- month BCD
+  rtcinit(31 DOWNTO 24)<=unsigned(rtc(31 DOWNTO 24));   -- date  BCD
+  rtcinit(23 DOWNTO 16)<=unsigned(rtc(23 DOWNTO 16));   -- hour  BCD
+  rtcinit(15 DOWNTO  8)<=unsigned(rtc(15 DOWNTO  8));   -- min   BCD
+  rtcinit( 7 DOWNTO  0)<=unsigned(rtc( 7 DOWNTO  0));   -- sec   BCD
   
   rtc_delay<=rtc(64) WHEN rising_edge(sclk);
   rtcset<=rtc(64) XOR rtc_delay WHEN rising_edge(sclk);
