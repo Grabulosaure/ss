@@ -162,6 +162,7 @@ ENTITY ts_core IS
     kbm_layout  : IN  uv8;
     
     dreset      : OUT std_logic;
+    sysreset    : OUT std_logic;
     
     -- Horloge
     sclk        : IN  std_logic
@@ -350,6 +351,7 @@ ARCHITECTURE rtl OF ts_core IS
       IOMMU_VER   : uv8);
     PORT (
       led         : OUT std_logic;
+      sysreset    : OUT std_logic;
       ps2_i       : IN  uv4;
       ps2_o       : OUT uv4;
       sync_rs     : IN  std_logic;
@@ -1336,6 +1338,7 @@ BEGIN
       IOMMU_VER  => IOMMU_VER)
     PORT MAP (
       led         => led_io,
+      sysreset    => sysreset,
       ps2_i       => ps2_i,
       ps2_o       => ps2_o,
       sync_rs     => sync_rs,
