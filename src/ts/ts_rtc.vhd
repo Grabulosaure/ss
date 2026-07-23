@@ -36,7 +36,7 @@ ENTITY ts_rtc IS
     w   : IN  type_pvc_w;
     r   : OUT type_pvc_r;
     
-    rtcinit : IN unsigned(43 DOWNTO 0);
+    rtcinit : IN unsigned(55 DOWNTO 0);
     rtcset  : IN std_logic;
     
     -- Global
@@ -82,6 +82,8 @@ ARCHITECTURE rtl OF ts_rtc IS
   SIGNAL mem_s : uv7;
   
   SIGNAL cr,cw,st : std_logic;
+
+  SIGNAL rtc_seeded : std_logic := '0';
 
   SIGNAL a_delay : unsigned(12 DOWNTO 2);
   
@@ -243,13 +245,24 @@ BEGIN
       a_delay<=w.a(12 DOWNTO 2);
       
       ----------------------------------
-      IF rtcset='1' THEN
-        mem_y<=rtcinit(39 DOWNTO 32); -- Year
-        mem_m<=rtcinit(28 DOWNTO 24); -- Month
-        mem_d<=rtcinit(21 DOWNTO 16); -- Day
-        mem_j<=rtcinit(42 DOWNTO 40); -- Day week
-        mem_h<=rtcinit(13 DOWNTO  8); -- Hour
-        mem_s<=rtcinit( 6 DOWNTO  0); -- Sec
+      IF (rtc_seeded='0' OR rtcset='1')
+         AND rtcinit(39 DOWNTO 32)/=x"00"
+         AND rtcinit(31 DOWNTO 24)/=x"00" THEN
+        rtc_seeded<='1';
+        cpt_j<=          rtcinit(50 DOWNTO 48); -- Day of week (1..7)
+        cpt_y<=          rtcinit(47 DOWNTO 40); -- Year
+        cpt_m<="000" &   rtcinit(36 DOWNTO 32); -- Month
+        cpt_d<="00"  &   rtcinit(29 DOWNTO 24); -- Date
+        cpt_h<="00"  &   rtcinit(21 DOWNTO 16); -- Hour
+        cpt_i<='0'   &   rtcinit(14 DOWNTO  8); -- Minute
+        cpt_s<='0'   &   rtcinit( 6 DOWNTO  0); -- Sec
+        mem_j<=          rtcinit(50 DOWNTO 48);
+        mem_y<=          rtcinit(47 DOWNTO 40);
+        mem_m<=          rtcinit(36 DOWNTO 32);
+        mem_d<=          rtcinit(29 DOWNTO 24);
+        mem_h<=          rtcinit(21 DOWNTO 16);
+        mem_i<=          rtcinit(14 DOWNTO  8);
+        mem_s<=          rtcinit( 6 DOWNTO  0);
       END IF;
 
       IF reset_n='0' THEN

@@ -93,7 +93,7 @@ ENTITY ts_core IS
     sd_reg_r    : IN  type_sd_reg_r;
 
     -- RTC init.
-    rtcinit     : IN unsigned(43 DOWNTO 0);
+    rtcinit     : IN unsigned(55 DOWNTO 0);
     rtcset      : IN std_logic;
     
     -- Ethernet MII / RMII
@@ -390,7 +390,7 @@ ARCHITECTURE rtl OF ts_core IS
       scsi_r      : IN  type_scsi_r;
       sd_reg_w    : OUT type_sd_reg_w;
       sd_reg_r    : IN  type_sd_reg_r;
-      rtcinit     : IN unsigned(43 DOWNTO 0);
+      rtcinit     : IN unsigned(55 DOWNTO 0);
       rtcset      : IN std_logic;
       phy_txd     : OUT uv4;
       phy_tx_clk  : IN  std_logic;

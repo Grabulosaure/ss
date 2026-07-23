@@ -85,7 +85,7 @@ ENTITY ts_io IS
     sd_reg_r    : IN  type_sd_reg_r;
 
     -- RTC init.
-    rtcinit     : IN unsigned(43 DOWNTO 0);
+    rtcinit     : IN unsigned(55 DOWNTO 0);
     rtcset      : IN std_logic;
     
     -- Ethernet MII / RMII
