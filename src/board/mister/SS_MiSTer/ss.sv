@@ -179,9 +179,7 @@ assign VGA_F1 = 0;
 assign VGA_SCALER = 1;
 assign HDMI_FREEZE = 0;
 
-assign AUDIO_S = 0;
-assign AUDIO_L = 0;
-assign AUDIO_R = 0;
+assign AUDIO_S = 1;
 assign AUDIO_MIX = 0;
 
 assign BUTTONS = 0;
@@ -390,6 +388,9 @@ ss_core
  .vga_de(VGA_DE),
  .vga_ce(CE_PIXEL),
  .vga_clk(CLK_VIDEO),
+ 
+ .audio_l(AUDIO_L),
+ .audio_r(AUDIO_R),
 
  .fb_pal_clk(FB_PAL_CLK),
  .fb_pal_d(FB_PAL_DOUT),

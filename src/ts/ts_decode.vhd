@@ -56,6 +56,9 @@ BEGIN
     -- x 5xxx xxxx : Video
     sel.video  <=to_std_logic(aa(31 DOWNTO 28)=x"5"); -- Framebuffer
     
+    -- x 6C00 0000-6FFF FFFF : Audio
+    sel.audio  <=to_std_logic(aa(31 DOWNTO 26)="011011");
+    
     -- x 784x xxxx : DMA2
     sel.dma2   <=to_std_logic(aa(31 DOWNTO 20)=x"784");
 
@@ -158,11 +161,11 @@ BEGIN
     
   END GENERATE Gen20;
 
-  sel.vide<=NOT (sel.ram OR sel.video OR sel.dma2 OR sel.esp OR
-                 sel.lance OR sel.iommu OR
-                 sel.rom OR sel.ibram OR sel.kbm OR sel.sport OR
-                 sel.rtc OR sel.timer OR sel.inter OR sel.led OR
-                 sel.auxio0 OR sel.auxio1 OR sel.syscon);
+  sel.vide<=NOT (sel.ram OR sel.video OR sel.audio OR sel.dma2 OR sel.esp OR
+               sel.lance OR sel.iommu OR
+               sel.rom OR sel.ibram OR sel.kbm OR sel.sport OR
+               sel.rtc OR sel.timer OR sel.inter OR sel.led OR
+               sel.auxio0 OR sel.auxio1 OR sel.syscon);
   
   s<=sel;
   
