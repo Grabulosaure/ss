@@ -40,6 +40,7 @@ ENTITY ts_io IS
   PORT (
     -- Ports série
     led         : OUT std_logic;
+    sysreset    : OUT std_logic;
     ps2_i       : IN  uv4;
     ps2_o       : OUT uv4;
     sync_rs     : IN  std_logic;
@@ -227,6 +228,8 @@ ARCHITECTURE rtl OF ts_io IS
 --------------------------------------------------------------------------------
   
 BEGIN
+
+  sysreset <= io_w.req AND io_w.wr AND sel.syscon AND io_w.dw(0);
 
   -----------------------------------
   -- Décodage d'adresses

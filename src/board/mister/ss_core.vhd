@@ -225,7 +225,7 @@ ARCHITECTURE rtl OF ss_core IS
   SIGNAL iic3_scl,iic3_sda_i,iic3_sda_o : std_logic;
   
   SIGNAL img0_readonly,img1_readonly,img6_readonly : std_logic;
-  SIGNAL img0_mounted,img1_mounted,img6_mounted : std_logic;
+  SIGNAL img0_mounted,img1_mounted,img6_mounted : std_logic := '0';
   SIGNAL img0_size,img1_size,img6_size : std_logic_vector(63 DOWNTO 0);
   SIGNAL sd0_lba,sd1_lba,sd6_lba : std_logic_vector(31 DOWNTO 0);
   SIGNAL sd0_rd,sd1_rd,sd6_rd,sd0_wr,sd1_wr,sd6_wr : std_logic;
@@ -244,7 +244,9 @@ ARCHITECTURE rtl OF ss_core IS
   
   SIGNAL rtc_delay : std_logic;
   SIGNAL dreset : std_logic;
-  
+  SIGNAL sysreset : std_logic;
+  SIGNAL reboot_pending : std_logic := '0';
+
   SIGNAL down : std_logic;
   
   SIGNAL ddram_s_readdata      : std_logic_vector(63 DOWNTO 0);
@@ -379,6 +381,7 @@ BEGIN
       wback       => wback,
       aow         => aow,
       dreset      => dreset,
+      sysreset    => sysreset,
       sclk        => sclk);
   
   ----------------------------------------------------------
@@ -522,11 +525,6 @@ BEGIN
         img6_size<=img_size;
         img6_readonly<='1';
         img6_mounted<='1';
-      END IF;
-      IF reset_n='0' THEN
-        img0_mounted<='0';
-        img1_mounted<='0';
-        img6_mounted<='0';
       END IF;
       
       ----------------------------------
@@ -936,8 +934,9 @@ BEGIN
           ddram2b_address<="00000000000000000000000000000";
           IF ioctl_download2='1' THEN
             state<=sDOWNLOAD;
-          ELSIF unsigned(ioctl_addr) >= 131072 THEN
+          ELSIF unsigned(ioctl_addr) >= 131072 OR reboot_pending='1' THEN
             state<=sCLR;
+            reboot_pending<='0';
           END IF;
           
         WHEN sCLR =>
@@ -1017,8 +1016,11 @@ BEGIN
       ioctl_wr2<=ioctl_wr;
       
       ------------------------------
-      IF ureset3='1' AND ureset2='0' THEN
+      IF (ureset3='1' AND ureset2='0') OR sysreset='1' THEN
         state<=sWAIT;
+        IF sysreset='1' THEN
+          reboot_pending<='1';
+        END IF;
       END IF;
       
       ------------------------------
